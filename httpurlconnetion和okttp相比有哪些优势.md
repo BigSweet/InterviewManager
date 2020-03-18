@@ -1,0 +1,421 @@
+##httpurlconnetion和okttp相比有哪些优势 
+httpurlconnetion 轻量级的http客户端
+okhttp 同一ip和端口的请求重用一个socket 降低网络连接的时间 对http和https都有良好的支持 成熟的网络请求解决方案
+
+##java8的新特性
+扩展方法 给接口添加一个非抽象的方法实现（添加一个默认方法用default关键字标记）
+Lambda表达式
+jodatime时间库
+可以使用多重注解
+lambda对对象的字段和静态变量都可以读写
+lambda可以访问局部变量
+使用::关键字来传递方法或者构造函数引用
+
+##kotlin和java相比的优势
+判空操作
+扩展方法
+不需要findview
+方法可以当做参数进行传递 用来做回调很方便
+
+##kotlin实现静态变量
+将变量放在companion object中 const val
+如果在java中调用这个变量需要类名.Companion.变量名，可以通过添加@jvmfiled来直接通过类名去点变量名
+
+##热修复
+新apk和旧的apk通过dexbiff算法对比生成差异包,差异包通过比对文件的MD5值，把修改过的文件打进差异包，差异包下发到服务器，下载到手机指定的路径,
+通过这个下载的路径生成dexclassloader，获取dexclassloader中的的pathlist，在获取Element数组，然后获取系统的pathclassloader和他的element数组，把这个差异包的Element数组塞到系统默认的element数组里面。通过反射把新的element数组设置给pathclassloader然后下次启动的时候就会加载差异包的dex类
+双亲委托机制
+父类加载过的dex，子类不会再去加载。保证所有的dex只会被加载一次。节省加载效率，防止核心系统类被篡改
+
+资源修复
+获取补丁文件，通过比较算法，生成差异包，放入一个指定的目录，通过这个路径获取AssertManager，通过assertmanager获取asset，然后将获取当前resource的assets字段设置为前面获取到的那个asset，这样getresource的时候就能找到补丁包里面的resource了
+
+so文件的修复
+通过比对和合成生成一个新的so文件，通过System.load方法加载so文件
+
+
+##插件化
+1，类加载，通过反射创建dexclassloader，在获取系统的classloader，根据apk的路径，将插件的classloader合并到系统的classloader中
+就可以实现加载插件类的功能
+2，资源加载 也是通过反射和apk路径获取assetmanager，在通过assetmanager获取resource，通过这个resource去访问插件中的资源
+3，插件的生命周期，通过占坑的一个activity，通过hook和反射，在startactivity的时候把这个占坑的activity替换成插件的activity，在启动之后在替换回来，实现跨越跳转插件activity的一个效果
+
+##组件化
+一个APP分为多个组件，这些组件之间都是解耦的，通过新建phone moudle tablet的形式实现单个组件能单独运行
+他们之间的通信是通过路由框架 比如阿里的arouter框架来通信
+要注意他们的manifest的合并，组件的application要保留俩个，一个是来单独运行的时候用，一个用来合并到主moudle的时候用
+路由框架的原理是通过自定义注解，比如在activity上标记一个注解，在编译的时候，通过反射拿到所有的标记了这个注解的activity，并存储在一个map里面，这样就能实现他们之间的跳转和通信
+
+##listview滑动卡顿优化   
+用viewholder来封装itemview减少findview的操作，滑动的时候不要加载图片，等滑动结束在加载
+
+##webview加载优化 
+js文件放在本地实现优化
+
+##recylerview的缓存
+四级缓存
+scrap 是屏幕类数据的缓存，可以直接拿来复用
+cache   刚刚移出屏幕的数据缓存 默认是2个，在来一个的话就会放入recyclerviewpool里面，通过position来寻找holder
+自定义缓存 一般不用
+recyclerviewpool 
+保存的cache的缓存 会把viewholder的数据全部重置，相当于一个新的viewholder
+，通过itemtype来寻找holder，会重新走onbingview方法
+
+##让自定义view滑动
+scrollTo与scrollBy方法可以实现滑动，也是通过修改坐标
+或者通过scroll类原理基本一致
+
+##server的生命周期
+startService -> oncreate->onstartcommand->onstopservice->ondestory
+bindservice->oncreate->onbind->onunbind->ondestory
+
+##事件分发机制
+viewgroup被点击后会触发dispatchTouchEvent，然后里面有一个onInterceptTouchEvent判断是否拦截，如果不拦截就会循环调用子view的dispatchTouchEvent，通过坐标来判断点击的是哪个view，如果点击的是空白区域target==null就会调用super.dispatchTouchEvent(ev)
+
+view的事件分发被点击后先调用dispatchTouchEvent，然后判断是否设置了onTouch事件mOnTouchListener是否为空，按钮是否是可点击的，在调用onTouchEvent，在MotionEvent.ACTION_UP里面调用performClick，如果设置了onclicklistener就会调用onclick事件
+
+
+##fragment之间传递数据
+eventbus
+通过特定的方法，拿到父fragment，去调用这个方法
+接口回调方式传递数据
+
+##othttp源码解析
+主要是调度器和拦截器链。
+调度器里面维护了一个线程池,最大请求数是64，还维护了一些队列，准备队列。同步运行队列，异步运行队列，在调度器里面发起请求，触发realcall的run方法，在里面开始执行拦截器链，拦截器链分为 重试的拦截器链和缓存拦截器链，桥接拦截器链，还有连接拦截器链和发送请求的拦截器
+
+重试拦截器链就是设置接口请求失败后的重试次数，是20次，通过proceed方法，里面index+1 调用下一条拦截器链
+
+桥接拦截器链主要是设置了一些头部信息
+
+缓存拦截器链 有俩种缓存策略，一种是对比缓存，一种是强制缓存，强制缓存就是直接拿上一次的缓存结果，对比缓存就是重新从服务器拿缓存，
+根据响应结果来判断使用哪一种缓存，没有对应的缓存结果；https请求却没有握手信息；不允许缓存的请求，这些都会走重新请求
+最终会使用disklrucache硬盘缓存
+
+连接拦截器链  首先调用exchangeFinder去find找到一个有效的连接，开启一个死循环，首先在连接池中找，如果没找到，会new一个realconnetion，然后通过socket和服务器建立连接 
+
+CallServerInterceptor 在连接建立好之后，通过OkIO 的source向服务器发送请求，通过okio的skin 就是outputstream 来构建和接收这个响应
+
+
+##自定义view的俩种方式
+一种是自定义viewgroup，只需要重写，onmeasure，和onlayou。子view可以是自定义的view也可以是实例化一个布局
+一种是自定义view 继承view 重写onmesure ，ondraw
+在ondraw里面画三角形，原型，或者实现你需要的功能，然后还可以自定义属性，通过attrs获取到这个属性
+
+##eventbus源码解析
+eventbus注册的时候会传入当前的类名，然后通过反射去获取注解了@subscribe的方法名，threadMode，参数，并存储在findState类中.
+findState中有方法名，eventtype的数组
+发送的时候会把event放入一个队列里面eventQueue，如果这个event注册过的话，就会取出这个队列的第一条event，通过方法的.invoke触发回调
+如果接收event的线程和当前的线程不一致的话就会触发线程切换
+
+##glide源码解析
+通过用法来解析，glide.with(this).load(url).into(target)
+.with传入了一个上下文，glide通过这个上下文，创建了一个requestmanager和一个空的fragment,将fragment添加到activity中，将requestmanager和fragment进行绑定。这样这个requestmanager就拥有生命周期了
+.load 只是进行了一些参数的赋值，获取到了一个requestbuilder
+.into 获取一个request，这个request就开始执行。回调onLoadStarted方法，确定好尺寸之后，调用onSizeRead,在里面调用engine.load
+先去缓存拿数据，拿到的话直接onresourceread,没拿到的话就会一个DecodeJob的runnable,选择不同的datedetch去loaddata，里面通过urlConnection，去获取图片的流decode成一个resource
+
+
+##glide的缓存
+内存缓存 弱引用+LruCache 
+如果图片正在缓存会调用弱引用get图片然后直接resourceread，如果图片被释放就会放在内存缓存中用lrucache缓存
+当图片加载完成之后会将图片缓存在弱引用，图片被释放掉之后会缓存在lrucache在通过一个acquire计数，这个时候就可以移除弱引用的那个缓存
+
+磁盘缓存
+一般缓存的是转换后的图片，用的也是LruCache，google提供了一个工具类DiskLruCache
+disklrucache根据一个日志文件journal记录操作记录
+journal文件结构分析
+dirty  图片的key  
+clean 图片的key 图片的大小size
+read  图片的key
+remove 图片的key
+开始写入缓存的时候会生成,调用commmit方法缓存成功之后，会生成clean记录，如果缓存失败了，调用abort生成一条remove记录
+每次调用get方法会生成一条read记录
+journal文件最大值是2000，当达到这个峰值之后，会把多余的、不必要的记录全部清除掉
+
+
+##lrucache的原理
+LruCache通过LinkedHashMap（一个数组加双向链表）来实现，未尾的数据会在达到最大值后被剔除
+linkhashmap通过访问顺序来实现lrucache，还有一个插入顺序
+构造方法中初始化创建了一个有头节点的双向链表，重写了entry
+put方法也是根据key的hash值和长度做一个与运算，生成一个entry存储，但是它重写了createEntry方法，linkhashmap的entry里面是一个双向链表，调用entry的addBefore方法，把新插入的节点的头指向上一个节点，尾指向head节点
+直接遍历双向链表,通过节点next双向链表，一直找到尾节点，after是空head节点这个时候就代表找完了
+
+
+##hashmap的时间复杂度
+0（1）通过下标来寻找 一次就找到
+
+##二分查找法的时间复杂度以及推导过程
+最坏的情况下是时间复杂度是log2n
+n/2/2/2=1 = log2n
+最好的情况是1次就找到
+##多线程的理解
+
+##序列化Serializable和Parcelable的区别
+序列化后的对象可以在网络上进行传输，也可以存储到本地。
+Parcelable android 自带  效率高 但是代码会多一点 把对象进行了分解，分解成了intent支持的类型
+Serializable java自带 代码量少 但是效率较低   通过反射实现 创建了很多临时变量
+存储在磁盘上的话还是优先选择Serializable
+
+##换肤操作
+首先是拿到皮肤包的resource，根据这个皮肤包的路径通过反射获取AssetManager，就可以获取到皮肤包resource。
+
+在通过给layoutinfalte设置factory2，接管oncreateview的这个过程，然后再factory的oncreateview中可以拿到xml里面所有的控件和属性，然后可以用一个skikenable是否为true来标记这个view是不是需要换肤，拿到这个标记为true的view，存储起来在一个skinitem里面
+
+换肤库的baseactivity继承一个接口，在生命周期attch的时候，skinmanager会把activity作为一个observer保存起来，deattch的时候移除掉，在触发换肤操作的时候，循环这个observer（就是activity），触发他们的update方法，再出发自定义的基础控件的apply方法，在里面进行换肤操作
+
+自定义view，首先需要些自己需要修改的属性的attrs，在apply方法里面写需要进行的一个操作，然后再AttrFactory里面注册自己的属性名字，调用base里面dynamicAddSkinEnableView方法就可以了
+
+#handler源码解析
+handler主要涉及到message，messagequene，loop，
+发送一条message会进入messagequene中，然后通过loop循环取出这个message，然后回调handlermessage，如果handler是在主线程调用的话就会回调到主线程
+
+##handler线程切换是怎么实现的
+handler中有一个threadlocal这个是用来存储每个线程的变量的，通过threadlocal获取主线程的looper在去调用handlermessage达到线程切换的目的
+
+#android各版本兼容
+6.0 权限适配
+7.0 应用之间共享文件，私有目录将被限制访问 不能通过file:// URI的形式 使用fileprovider要用content:// URI
+8.0 通知变化了很多 要加channelid groupid等给通知进行分类 透明的activity不允许设置方向  安装APK，不允许安装来源不明的应用，需要授权，悬浮窗权限的变更
+9.0 不支持http 移除了apachehttp的包 需要自己引用library 权限的变更比如电话号码，通话记录
+
+##java的设计者模式
+工厂者模式 有一个工厂类，里面有一个方法，可以生产出不同的东西。或者把这个类抽象化，下面实现不同的工厂
+单例模式  只有一个实例 getinstance
+适配器模式 adapter
+观察者模式 观察者和被观察者，被观察者有update的时候会通知观察者
+代理模式 
+
+##java的抽象 继承 多态 泛型 重载
+抽象 抽象类必须要重写 用来做base用，一些公用的基础功能就写在抽象类里面
+继承 除了具备被继承者的特性之外，还具备自己独立的特性
+多态 多态表示不同的对象可以执行相同的动作，但是要通过它们自己的实现代码来执行。
+泛型 是具有占位符的类和结构 避免了类型安全问题导致频繁的拆箱和装箱问题
+重载 方法名必须一致，参数必须不一致。方法重载的好处是可以在不改变方法的基础上新增功能
+
+##wait await sleep区别
+都会让出cpu 
+sleep 线程不会释放对象锁 过了指定时间之后就会自动运行
+wait 会释放对象锁 ，等待notify才继续执行
+await 会释放对象锁 通过signal才继续执行
+
+##git merge rebase的区别
+merge会产生一个merge分支 rebase不会产生额外的commit更加干净一点
+
+##屏幕适配方案
+主要由三种适配方案，一种是通过多种dimen文件多个dp比如通过最小宽度文件实现适配
+一种是自定义view，自定义一些layout，在获取屏幕的宽高，和设计稿的宽度做一个对比来打到设配
+一种是今日头条的适配方案，通过修改系统的dpi值达到适配，也是获取当前设备的宽度和高度来和设计稿做一个对比
+
+##单项链表怎么判断是否被环住了
+如果判断有环 通过反向指针 如果有环就会指向头指针
+判断环的位置 一个一个读取出来放到一个数组，有相同的数字的那个地方就是环的位置
+
+##双向链表怎么找到中间的位置
+设置一个头指针，一个尾指针，头指针往后移动，尾指针往前移动。移动到什么时候是中间位置呢？这就要分两种情况了：
+（1）链表长度是偶数，此时中间位置是，头指针、尾指针分别指向对方，则中间位置就是头尾指针了。
+（2）链表长度是奇数，此时投尾指针指向相同，中间位置也就是指向相同的节点。
+
+##横竖屏切换生命周期的变化
+如果设置了configChanges="orientation|keyboardHidden|screenSize"
+那么横竖屏切换的时候只会调用onConfigurationChanged
+如果只设置了android:configChanges="orientation"或者没有设置
+那么横竖屏切换的生命周期为
+首先进入应用
+onCreate->onResume
+这个时候旋转屏幕
+onPause->onStop->onSaveInstanceState->onDestroy->onCreate->onRestoreInstanceState->onResume
+
+##mvp mvc mvvm 区别
+mvc模式 model层做数据处理网络请求  view层=xml做ui显示 controller层=activity用来交互model层和view层 通过一个接口来回调view层
+mvc的缺点就是activity作为controller的代码太多
+
+mvp模式 View:负责绘制UI元素和用户交互 Model:用来操作数据就是一个接口 Presenter:作为View与Model交互的中间纽带用来做网络处理或者逻辑处理 interface用来p层和view的交互
+
+mvvm模式 view:接收交互请求，将请求交给viewmodel，viewmodel操作model进行数据更新，model更新完数据通知viewmodel数据发生变化
+view和viewmodel是双向绑定的关系 viewmodel变化 view也会变化
+
+##rxjava背压
+在异步订阅中，由于被观察者发送数据和观察者接收数据的速度不匹配，导致无法及时响应，内存溢出。就引入了背压这个概念
+使用flowable观察者模型，发送的事件会进入一个缓存区，根据观察者的需求，响应式的拿取数据
+flowable会手动控制观察者和被观察者的速度 通过一个request方法取数据，被观察者也可以通过emiter.request来获取观察者需要的数据数量（只能在同步订阅中使用）
+同步订阅就是被观察者发送一个数据，观察者处理完成之后才会继续处理下一个数据
+背压策略有很多种，包括只取最新的，或者设置缓存区无限大，或者直接抛出异常，或者丢弃超出缓存区的事件
+
+
+##hashmap原理
+hashmap是一个数组加一条单向链表
+put方法通过key的hash值和hashmap的长度减1进行与计算 h & (length-1)得到下标，将key和value封装成一个entry放入table数组中
+为什么hashmap的长度是2的幂次方 2的幂次方是偶数 偶数-1等于奇数，能确保二进制最后一位为1，进行与运算的时候就可以分布均匀，
+否则如果是奇数的话，奇数-1=偶数，二进制后面是0，进行与运算一直是0，一直是偶数，浪费了所有的奇数位
+get方法，根据key的hash值，indexFor寻找下标 for循环找到这个下标 返回value
+为什么hashmap是无序的，因为他是先遍历table在去遍历链表
+
+
+##http和https的区别
+http请求和服务器没有进行身份验证，导致可能被窃听和篡改
+https是在http的基础上增加了一层ssl加密协议
+HTTPS 协议增加了很多握手、加密解密等流程，虽然过程很复杂，但其可以保证数据传输的安全
+客户端和服务器端第一次握手的时候，服务器端会发送一个ssl证书给客户端，客户端会查找操作系统中内置的受信任的证书，对比检验是否合法
+在用非对称算法，发送一个对称算法的公钥，然后服务器用私钥解密得到这个对称算法的秘钥，后续在通过这个秘钥进行数据传输 
+
+##nestscrollview和recyclerview嵌套引起的缓存问题
+监听globallistener，获取scrollview的高度给recyclerview
+nestscrollview的测量模式是UNSPECIFIED,recyclerview在onmeasure的时候，如果是UNSPECIFIED会实例化所有的child
+
+##http为什么要三次握手。
+为了建立有效的tcp连接。需要三次握手，第一次握手发送sync信号给服务器。服务器收到后，会发送一个确认符ack。和客户端第二次握手。客户端收到后。将确认符在发给服务器，代表连接成功
+
+四次挥手
+客户端发送断开信号给服务器，服务器收到后，发送确认符给客户端。这个时候客户端到服务器的这条线断开连接，但是服务器需要处理完它剩下的报文柱子后，才会在发送一个信息给客户端。表明他已经处理完所有的报文，可以断开连接了。客户端收到后，将确认符发送给服务器。服务器断开连接
+
+##anr相关知识
+如果机器上出现了anr，系统会生成一个traces.txt的文件放在/data/anr下
+traceview，会显示方法的耗时操作和调用次数
+一般用debug。startMethodTracingSampling（）和Debug.stopMethodTracing()，会生成一个trace文件，直接拖到android studio里面就能看到性能方便的一些图，包括方法的调用次数，方法的耗时
+
+##livedata
+观察者模式构建的一个和生命周期有关系的一个库，可以减少内存泄漏，保证UI状态和数据的统一，不需要手动处理生命周期的变化
+一般用到的都是LifecycleBoundObserver，他有一个statechange方法，当生命周期变化后，会通知livedata去更新数据，如果生命周期大于start，就会回调onchange方法，生命周期结束，会移除这个mObserver
+
+##lifecycle
+通过lifecycleOwner.getLifecycle().addObserver(this)给presenter添加lifecycle，fragment和activity默认实现了lifecycleowner，在presenter里面注解@OnLifecycleEvent，当生命周期变化后就会回调这个对应的方法
+
+原理
+android 9.0ComponentActivity默认实现了LifecycleOwner，lifecycle的一个接口类，在oncreate的时候生成了一个reportfragment,并把这个fragment依赖ComponentActivity，然后再reportfragment生命周期变化的时候，会dispatch lifecycle的event，在handleLifecycleEvent，最后会触发mLifecycleObserver的onStateChanged方法，
+然后这个observer里面有一个callbackinfo，里面用一个map存储了所有标记了@lifecycleevent的方法名和event值，在通过invokeCallbacks传进来的这个event找到对应的方法，通过invoke回调出去
+
+
+##startactivity的启动过程
+Launcher就是系统桌面就是一个activity
+launch进程（app的第一进程zygote进程fork）调用startactvity，当前activity在通过它的管家Instrumentation发起请求。告诉ams去启动这个activity
+ams收到这个消息后，会通过applicationthread发送一条消息给主线程的handler，先暂时当前的activity。
+如果是app启动过程，通知laucnch进程暂停actviity。然后就会创建一个新的进程，这个进程由Zygotefork的，然后导入ActivityThread。在开启loop循环
+然后在检测activity的合法性，在给这个activity配置一个栈，在通过ActivityStackSupervisor来获取当前要显示的Activitystack，在通过applicationthread,发送一个LAUNCH_ACTIVITY消息给activitythread的handle去启动这个activity，在通过这个actvity的管家去调用生命周期
+
+##retrofit源码解析
+retrofit是在okhttp的基础上进行了封装，支持rxjava多种适配器，支持多个平台。支持多种数据解析模式。运用了多种设计模式去解耦，建造者模式，去构建参数。代理模式，去拿接口的注解，策略模式。支持多种平台。工厂模式，转换器工厂。数据解析器工厂，代理模式。用okhttp代理它去发送请求。
+retrofit在调用接口的方法的时候，会触发动态代理的invoke方法，invoke方法里面，在触发servermethod的invoke方法，先在缓存serviceMethodCache里面取，触发servermethod的parseAnnotations。在这个方法里面拿到注解的参数和url,在拿到前面设置的calladapter和responseConverter，在创建一个httpservermethod，在invoke方法里面创建了okhttpcall，在触发calladapter的adapter方法，在rxjavaadapter的adapt方法里面。创建同步和异步的Observable，触发call的接口请求方法。拿到返回结果，触发parseResponse方法。触发responseConverter的convert方法。gson解析后正在通过rxjava发送到下游
+
+##4种引用类型
+分为4种，用来控制对象的生命周期
+强引用 不会被垃圾回收期回收，会抛出oom异常
+软引用 在内存足够的情况下 不会去回收 效果和强引用一样
+弱引用 生命周期比软引用少很多，在gc回收的时候，不管内存是否足够 都会回收他
+虚引用 就是没有引用，垃圾回收期任何时候都会回收他
+refercequene 一般和软引用，弱引用关联
+如果软应用被垃圾回收期回收了 就会把这个引用加入到这个队列当中
+
+##leakcanary原理解析
+watch一个要销毁的对象，
+首先创建一个activitywatch，通过一个lifecyclecallback对象和activity生命周期关联，在ondestory的时候，会生成一个key和弱引用对这个activity进行包装，放入弱引用队列当中，然后会开启一个线程，来分析这个acitvity，会手动执行gc垃圾回收，如果activity存在内存泄漏是不会被回收的，找到hprof文件,转换为一个快照，在这个快照中找到第一个弱引用。遍历这个对象，寻找当初创建的key相同的对象，这个对象就是内存溢出的对象
+
+当发生内存溢出的时候，JVM就会将当前的虚拟机的堆等信息放入hprof文件中
+
+
+##内存泄漏引起的方式
+单例引起的内存泄漏，单例的周期周期是整个应用的生命周期，如果创建单例传入的是activty，会导致单例持有这个activity，导致它无法被回收
+解决办法就是将传入的context，去获取application的context，保持生命周期同步
+
+handler引起的内存泄漏： handler做延时处理的时候，没有释放掉这个message，message持有handler引用。handler持有actvity引用，导致无法被回收
+解决办法是将handler定义为静态的，不持有activity的引用，或者用弱引用包裹actvity，或者在activity 
+ondestory的时候移除handler的message
+
+静态类不持有外部类的引用
+
+线程引起的内存泄漏
+线程去做一个耗时任务，这个时候activity关闭了，这个任务还在执行，导致这个actvity无法被回收
+解决办法也是将线程定义为静态的
+
+webview引起的内存泄漏
+webview去加载很多复杂的页面的时候，会导致内存泄漏，解决办法就是把webview所在的activity放在一条单独的进程当中，在ondestory的时候，去杀掉这条进程
+
+##静态变量和成员变量的区别
+静态变量属于类，成员变量属于对象
+静态变量位于方法区中的静态区，成员变量存储于堆内存
+静态变量可以通过类名调用，也可以通过对象名调用，成员变量只能通过对象名调用
+静态变量随着类的加载而加载，成员变量随着对象的创建而存在
+
+##数组和arraylist的区别
+数组的长度是固定的，类型安全的
+arraylist的长度不固定，可以动态扩容，类型不安全
+arraylist内部封装了一个object的数组。添加，修改数据都会频繁的装箱和拆箱。装箱就是把int转换成object。拆箱就是把object转换成int
+
+##arraylist的扩容
+调用add方法，如果是空数组就会扩容到10 ，如果不是空数组，就size+1，如果size+1（size是当前数据数量）> 数组的长度就需要扩容
+扩容最大值是integer.maxvalue - 8，扩容大小是数组的长度右移1位+数组的长度，调用数组的copyof方法
+
+##volatile和synchronized的区别
+执行控制 内存可见
+执行控制的目的是控制代码执行（顺序）及是否可以并发执行。
+内存可见控制的是线程执行结果在内存中对其它线程的可见性。根据Java内存模型的实现，线程在具体执行时，会先拷贝主存数据到线程本地（CPU缓存），操作完成后再把结果从线程本地刷到主存。
+
+volatile本质是在告诉jvm当前变量在寄存器（工作内存）中的值是不确定的，需要从主存中读取； synchronized则是锁定当前变量，只有当前线程可以访问该变量，其他线程被阻塞住。
+volatile仅能使用在变量级别；synchronized则可以使用在变量、方法、和类级别的
+volatile仅能实现变量的修改可见性，不能保证原子性；而synchronized则可以保证变量的修改可见性和原子性
+volatile不会造成线程的阻塞；synchronized可能会造成线程的阻塞
+
+volatile关键字解决的是内存可见性的问题，会使得所有对volatile变量的读写都会直接刷到主存
+
+##原子性操作：原子性在一个操作是不可中断的，要么全部执行成功要么全部执行失败
+
+##hashmap的扩容
+默认是16大小的tab数组，当数组长度增加到16*负载因子0.75的时候就是大于>12的时候，就会进行扩容 12是筏值threshold=默认大小乘以负载因子
+当进行扩容的时候，newCap = oldCap << 1，原始数组大小乘以2变成新数组的大小,同时新的threshold也会扩大俩倍。
+根据新的原始数组大小，会创建一个新的空数组，开始转移数据。for循环原始数组，将数据取出，移到新的数组中。
+如果其中的item是红黑树，就会走((TreeNode<K,V>)e).split(this, newTab, j, oldCap);方法进行数据转移
+
+##红黑树
+##线程池怎么关闭
+##webview和js的交互方式 jsbrige
+调用js的方法通过webview.load方法，
+js调用java方法，通过定义@JavascriptInterface，统一处理，url的跳转通过shouldOverrideUrlLoading统一处理
+
+##kotlin的操作符
+##kotlin内联函数
+调用一个方法是一个压栈和出栈的过程,这个过程是会消耗资源的。获取传递高阶函数作为参数的时候也可以使用内联函数
+标记为内联函数就会在编译期间直接执行方法体，不需要压栈和出栈，节省资源，
+
+rxjava的obser和sub作用域哪一次生效
+##kotlin的协程
+
+
+##rxjava原理解析
+基于观察者模式的一个异步操作库，
+观察者向被观察者注册，当被观察者有变化的时候，触发观察者去notify，这些具体的实现，由他们对应的子类去实现
+3个重要的东西，观察者，被观察者，事件，订阅。线程切换。操作符。
+首先创建一个被观察者，一个观察者，被观察者订阅观察者，发动一个事件。可以通过操作符对这个事件进行转换，最后在通过线程切换在不同的线程去做一些事情。
+map操作符，针对事件的变换的操作符，比如讲map转换为bitmap
+flatmap操作符，是针对被观察者变换的操作符，比如讲string的被观察者变成bitmap类型的被观察者
+subscribeon 创建了一个新的subscribe，传入了source。在通过传入的scheduler去creatework
+一般是scheduler.io对应IoScheduler创建了一个newthreadwork通过线程池去执行。
+因为subscribeon 每次创建新的类传入的source都是我们创建的single，最终在subscribeActual里面触发的都是source.subscribe发送到下游，所以都是属于source所在的的线程
+observeon 可以调用多次  是通过操作符去完成线程切换的，多次调用可以多次切换线程
+
+
+##xml里面的fitsSystemWindows属性的作用
+##组件之间的方法调用，数据传递
+##activityservermanager
+##数据结构与算法
+
+##jetpack下面的库的一些原理
+viewmodel
+
+##gradlew 构建自动化加固
+新建java依赖包。新建一个class 继承plugin 注册plugin,通过project创建扩展。拿取username，签名文件
+
+##context类的作用
+
+##线程和进程的区别，怎么创建的
+
+##kotlin操作符let with run
+let操作符，定义一个作用域，在这个作用域里面，it表示自己本身，通常用来进行判空操作
+with操作符 定义一个域，这个域中直接就是自己本身，可以访问自己的属性。通过用来做数据赋值  作用域中需要自己判空
+run操作符 let和with的结合体，可以操作符前面判空。作用域中表示自己本身。访问自身的方法和属性，返回值为最后一行代码
+apply 和run操作符类似，返回值不同，返回的是自己本身
+
+##class的加载过程
+加载-》验证-》准备-》解析》初始化-》使用-》卸载
+class.forname()会对类进行初始化操作
+classloader.loadclass不会对类进行初始化
+

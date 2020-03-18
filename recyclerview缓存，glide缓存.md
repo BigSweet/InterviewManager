@@ -1,0 +1,39 @@
+recyclerview缓存，glide缓存
+
+
+##recylerview的缓存
+四级缓存
+scrap 是屏幕类数据的缓存，可以直接拿来复用
+cache   刚刚移出屏幕的数据缓存 默认是2个，在来一个的话就会放入recyclerviewpool里面，通过position来寻找holder
+自定义缓存 一般不用
+recyclerviewpool 
+保存的cache的缓存 会把viewholder的数据全部重置，相当于一个新的viewholder
+，通过itemtype来寻找holder，会重新走onbindview方法
+
+
+
+
+##glide的缓存
+内存缓存 弱引用+LruCache 
+如果图片正在缓存会调用弱引用get图片然后直接resourceread，如果图片被释放就会放在内存缓存中用lrucache缓存
+当图片加载完成之后会将图片缓存在弱引用，图片被释放掉之后会缓存在lrucache在通过一个acquire计数，这个时候就可以移除弱引用的那个缓存
+
+磁盘缓存
+一般缓存的是转换后的图片，用的也是LruCache，google提供了一个工具类DiskLruCache
+disklrucache根据一个日志文件journal记录操作记录
+journal文件结构分析
+dirty  图片的key  
+clean 图片的key 图片的大小size
+read  图片的key
+remove 图片的key
+开始写入缓存的时候会生成,调用commmit方法缓存成功之后，会生成clean记录，如果缓存失败了，调用abort生成一条remove记录
+每次调用get方法会生成一条read记录
+journal文件最大值是2000，当达到这个峰值之后，会把多余的、不必要的记录全部清除掉
+
+
+##lrucache的原理
+LruCache通过LinkedHashMap（一个数组加双向链表）来实现，未尾的数据会在达到最大值后被剔除
+linkhashmap通过访问顺序来实现lrucache，还有一个插入顺序
+构造方法中初始化创建了一个有头节点的双向链表，重写了entry
+put方法也是根据key的hash值和长度做一个与运算，生成一个entry存储，但是它重写了createEntry方法，linkhashmap的entry里面是一个双向链表，调用entry的addBefore方法，把新插入的节点的头指向上一个节点，尾指向head节点
+直接遍历双向链表,通过节点next双向链表，一直找到尾节点，after是空head节点这个时候就代表找完了
