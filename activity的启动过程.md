@@ -1,0 +1,35 @@
+
+
+##startactivity的启动过程
+Launcher就是系统桌面就是一个activity
+launch进程（app的第一进程zygote进程fork）调用startactvity，当前activity在通过它的管家Instrumentation发起请求。告诉ams去启动这个activity
+ams收到这个消息后，会通过applicationthread发送一条消息给主线程的handler，先暂时当前的activity。
+如果是app启动过程，通知laucnch进程暂停actviity。然后就会创建一个新的进程，这个进程由Zygotefork的，然后导入ActivityThread。在开启loop循环
+然后在检测activity的合法性，在给这个activity配置一个栈，在通过ActivityStackSupervisor来获取当前要显示的Activitystack，在通过applicationthread,发送一个LAUNCH_ACTIVITY消息给activitythread的handle去启动这个activity，在通过这个actvity的管家去调用生命周期
+
+
+
+activity启动模式
+从A启动Bactivity的生命周期是
+onpause(A)->oncreate(B)->onstart(B)->onresume(B)->onstop(A)
+
+onnewintent 
+触发时机 
+1、只对singleTop，singleTask，singleInstance有效，因为standard每次都是新建，所以不存在onNewIntent；
+2、只对startActivity有效，对于从Navigation切换回来的恢复无效；
+
+
+standard不会百分百是新建，当应用从主页点击launch图标进入的时候，如果该activity存在，那么只会把这个activity放到前台 而不是去新建他
+
+standard标准模式每个task可以创建多个实例
+当从非Activity的context启动activity时，需要带new_task的flag；
+谁启动了这个 Activity，那么这个 Activity 就运行在启动它的那个 Activity 所在的栈中
+
+singletop 栈顶复用 每个task顶部只能有一个  比如连续启动俩次activityA 栈内只会存在一个
+一个singleTop Activity 的实例可以无限多，唯一的区别是如果在栈顶已经有一个相同类型的Activity实例，Intent不会再创建一个Activity，而是通过onNewIntent()被发送到现有的Activity。
+
+
+singletask  栈内复用，每个栈内只有一个
+多次启动此 Activity 都不会重新创建实例，和 singleTop一样，系统也会回调其 onNewIntent。
+
+singleinstance 每个task只能有一个实例

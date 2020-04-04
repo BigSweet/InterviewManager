@@ -107,17 +107,8 @@ hashmap是一个数组加一条单向链表
 put方法通过key的hash值和hashmap的长度减1进行与计算 h & (length-1)得到下标，将key和value封装成一个entry放入table数组中
 为什么hashmap的长度是2的幂次方 2的幂次方是偶数 偶数-1等于奇数，能确保二进制最后一位为1，进行与运算的时候就可以分布均匀，
 否则如果是奇数的话，奇数-1=偶数，二进制后面是0，进行与运算一直是0，一直是偶数，浪费了所有的奇数位
-get方法，根据key的hash值，indexFor寻找下标 for循环找到这个下标 返回value
+get方法，根据key的hash值，和key的值，遍历node节点，在node中寻找寻找hash值相同，且key也相同的node，返回node的value值
 为什么hashmap是无序的，因为他是先遍历table在去遍历链表
-
-
-
-##startactivity的启动过程
-Launcher就是系统桌面就是一个activity
-launch进程（app的第一进程zygote进程fork）调用startactvity，当前activity在通过它的管家Instrumentation发起请求。告诉ams去启动这个activity
-ams收到这个消息后，会通过applicationthread发送一条消息给主线程的handler，先暂时当前的activity。
-如果是app启动过程，通知laucnch进程暂停actviity。然后就会创建一个新的进程，这个进程由Zygotefork的，然后导入ActivityThread。在开启loop循环
-然后在检测activity的合法性，在给这个activity配置一个栈，在通过ActivityStackSupervisor来获取当前要显示的Activitystack，在通过applicationthread,发送一个LAUNCH_ACTIVITY消息给activitythread的handle去启动这个activity，在通过这个actvity的管家去调用生命周期
 
 
 
@@ -136,15 +127,6 @@ await 会释放对象锁 通过signal才继续执行
 
 ##git merge rebase的区别
 merge会产生一个merge分支 rebase不会产生额外的commit更加干净一点
-
-
-#handler源码解析
-handler主要涉及到message，messagequene，loop，
-发送一条message会进入messagequene中，然后通过loop循环取出这个message，然后回调handlermessage，如果handler是在主线程调用的话就会回调到主线程
-
-##handler线程切换是怎么实现的
-handler中有一个threadlocal这个是用来存储每个线程的变量的，通过threadlocal获取主线程的looper在去调用handlermessage达到线程切换的目的
-
 
 
 ##换肤操作
