@@ -1,0 +1,12 @@
+设置编码器属性
+//打开x264编码器 
+x264_param_t param;
+ //2： 最快 //3: 无延迟编码 
+ x264_param_default_preset(&param, "ultrafast", "zerolatency");
+ 设置编码器的属性，宽高，码率，帧率
+ 打开编码器
+ x264_encoder_open
+
+ 开始编码
+ x264_encoder_encode
+ 在通过librtmp 推流
