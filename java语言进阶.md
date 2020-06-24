@@ -137,3 +137,103 @@ public class WildChar{
         futureTask.get() //获取返回值
 ```
 
+线程中断方法，结合
+
+```
+val thread = object : Thread() {
+            override fun run() {
+                super.run()
+                while (!this.isInterrupted) {
+                    println("do some thing")
+                }
+            }
+        }
+        thread.start()
+        Thread.sleep(50)
+        thread.interrupt()//通过这个方法来打断线程
+```
+
+并行和并发
+
+并行是同时几个线程能一起运行
+
+并发是指在某一个时间段里面运行了多少个线程
+
+![image-20200612175059240](/Users/yanzhe/android/知识整理/image/image-20200612175059240.png)
+
+Synchronized
+
+内置锁
+
+可以分为对象锁和类锁
+
+对象锁
+
+```
+ Object object = new Object();
+
+    synchronized void test() {
+
+    }
+
+    void test1() {
+        synchronized (this) {
+
+        }
+    }
+
+    void test2() {
+        synchronized (object) {
+
+        }
+    }
+```
+
+类锁 
+
+```
+synchronized static void test() {
+
+    }
+```
+
+锁住静态变量
+
+yield,sleep不会释放锁
+
+wait会释放锁
+
+wait通过notify唤醒
+
+wait和notify是配合synchronized一起使用
+
+显式锁lock  获取锁和释放锁都可以控制，可以尝试获取锁
+
+隐式锁 synchronized 无法控制获取锁的这个过程
+
+公平和非公平锁 
+
+如果在时间上，先对锁进行获取的请求一定先被满足，那么这个锁是公平的，反之，是不公平的。公平的获取锁，也就是等待时间最长的线程最优先获取锁，也可以说锁获取是顺序的
+
+synchronized是非公平锁 
+
+```
+Lock lock = new ReentrantLock();
+        try{
+            lock.lock();
+        }finally {
+            lock.unlock();
+        }
+```
+
+范式用法
+
+可重入锁：可以重复获取同一种锁
+
+如果想在lock里面实现wait可以使用
+
+```
+ lock.newCondition().await();
+ lock.newCondition().notify();
+```
+
