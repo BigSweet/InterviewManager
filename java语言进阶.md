@@ -237,3 +237,56 @@ Lock lock = new ReentrantLock();
  lock.newCondition().notify();
 ```
 
+
+
+线程池含义解析
+
+```
+ public ThreadPoolExecutor(int corePoolSize,
+                              int maximumPoolSize,
+                              long keepAliveTime,
+                              TimeUnit unit,
+                              BlockingQueue<Runnable> workQueue,
+                              RejectedExecutionHandler handler) 
+```
+
+第一个参数核心线程数
+
+线程池执行任务的时候创建的线程数量。
+
+当数量大于核心线程数的时候，就开始存入BlockingQueue（阻塞队列）中。
+
+当队列也存满的时候，会根据maximumPoolSize的大小重新创建新的线程，
+
+当maximumPoolSize也满了的时候，执行RejectedExecutionHandler（拒绝策略）
+
+keepAliveTime阻塞队列中线程的存活时间，超过这个时间还没有被取出，就会被抛弃
+
+unit存活时间的单位
+
+4种拒绝策略，
+
+1，直接抛出异常。（默认策略）
+
+2，抛弃队列头部的数据
+
+3，抛弃队列尾部的数据
+
+4，让当前线程自己处理
+
+
+
+asynctask 里面有俩个线程池，一个用来维持串行的队列，一个用来执行异步线程
+
+handler执行异步消息的通知，和线程间的切换
+
+
+
+悲观锁  每次对数据进行操作的时候，都认为有线程正在修改， synchronized`和`ReentrantLock 就是悲观锁
+
+乐观锁 atomicintger 原子性操作 cas检查（比较和替换只有当oldvalue和newvalue一致的时候才会替换）
+
+饿汉式  直接new出来
+
+懒汉式 锁住之后，在new出来
+

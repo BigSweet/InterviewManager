@@ -11,6 +11,28 @@ subscribeon 创建了一个新的subscribe，传入了source。在通过传入�
 因为subscribeon 每次创建新的类传入的source都是我们创建的single，最终在subscribeActual里面触发的都是source.subscribe发送到下游，所以都是属于source所在的的线程，所以只有第一次生效
 observeon 可以调用多次  是通过操作符去完成线程切换的，多次调用可以多次切换线程
 
+```
+SubscribeOn只生效第一次
+subscribeOn(AndroidSchedulers.mainThread())
+.subscribeOn(Schedulers.io())
+
+subscribe触发之后，会从下往上调用上一个SubscribeOn的subscribeActual方法，所以最终触发的是第一个SubscribeOn
+
+
+    observeOn 可以调用多次 最后一次生效
+    
+     Worker worker = scheduler.createWorker();
+
+        if (s instanceof ConditionalSubscriber) {
+            source.subscribe(new ObserveOnConditionalSubscriber<T>(
+                    (ConditionalSubscriber<? super T>) s, worker, delayError, prefetch));
+        } else {
+            source.subscribe(new ObserveOnSubscriber<T>(s, worker, delayError, prefetch));
+        }
+        
+        每次都是创建一个新的work，创建一个新的task去执行
+```
+
 
 
 ##rxjava背压
