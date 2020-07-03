@@ -10,7 +10,7 @@
 
 public <E> void add(E e)
 
-泛型类的泛型只影响泛型的普通方法，不影响泛型类中的泛型方法，所以泛型方法可以和泛型的泛型不一直，比如
+泛型类的泛型只影响泛型的普通方法，不影响泛型类中的泛型方法，所以泛型方法可以和泛型的泛型不一致，比如
 ```
 
 ```
@@ -290,3 +290,48 @@ handler执行异步消息的通知，和线程间的切换
 
 懒汉式 锁住之后，在new出来
 
+
+
+
+
+注解
+
+```
+@Retention(RetentionPolicy.RUNTIME)
+指定注解的生命周期，有三种类型
+SOURCE 注解只保留在源文件，当Java文件编译成class文件的时候，注解被遗弃；
+CLASS  注解被保留到class文件，但jvm加载class文件时候被遗弃，这是默认的生命周期；
+RUNTIME注解不仅被保存到class文件中，jvm加载class文件之后，仍然存在；
+```
+
+```
+@Target(ElementType.TYPE)
+指定注解的作用域，方法，变量，类等
+```
+
+```
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface Presenter {
+    Class<?> value();
+}
+presenter注解
+可以定义在类上。
+```
+
+
+
+
+
+序列化
+
+```
+继承 Serializable 需要添加SerializableUid 内存存在大量的反射，会有内存碎片
+继承Parcelable 效率更高，android推荐
+
+```
+
+Android里面为什么要设计出Bundle而不是直接用Map结构
+
+Bundle内部是由ArrayMap实现的，ArrayMap的内部实现是两个数组，一个int数组是存储对象数据对应下标，一个对象数组保存key和value，内部使用二分法对key进行排序，所以在添加、删除、查找数据的时候，都会使用二分法查找，只适合于小数据量操作，如果在数据量比较大的情况下，那么它的性能将退化。而HashMap内部则是数组+链表结构，所以在数据量较少的时候，HashMap的Entry Array比ArrayMap占用更多的内存。因为使用Bundle的场景大多数为小数据量，我没见过在两个Activity之间传递10个以上数据的场景，所以相比之下，在这种情况下使用ArrayMap保存数据，在操作速度和内存占用上都具有优势，因此使用Bundle来传递数据，可以保证更快的速度和更少的内存占用。
+另外一个原因，则是在Android中如果使用Intent来携带数据的话，需要数据是基本类型或者是可序列化类型，HashMap使用Serializable进行序列化，而Bundle则是使用Parcelable进行序列化。而在Android平台中，更推荐使用Parcelable实现序列化，虽然写法复杂，但是开销更小，所以为了更加快速的进行数据的序列化和反序列化，系统封装了Bundle类，方便我们进行数据的传输。

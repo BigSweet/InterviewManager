@@ -8,8 +8,13 @@ map操作符，针对事件的变换的操作符，比如讲map转换为bitmap
 flatmap操作符，是针对被观察者变换的操作符，比如讲string的被观察者变成bitmap类型的被观察者
 subscribeon 创建了一个新的subscribe，传入了source。在通过传入的scheduler去creatework
 一般是scheduler.io对应IoScheduler创建了一个newthreadwork通过线程池去执行。
-因为subscribeon 每次创建新的类传入的source都是我们创建的single，最终在subscribeActual里面触发的都是source.subscribe发送到下游，所以都是属于source所在的的线程，所以只有第一次生效
-observeon 可以调用多次  是通过操作符去完成线程切换的，多次调用可以多次切换线程
+因为subscribeon 每次创建新的类传入的source都是我们创建的single，最终在subscribeActual里面触发的都是
+
+source.subscribe发送到下游
+
+SubscribeOn只生效第一次，影响的是上游
+
+observeon 可以调用多次  ，影响的是下游，最后一次生效
 
 ```
 SubscribeOn只生效第一次
@@ -41,3 +46,22 @@ subscribe触发之后，会从下往上调用上一个SubscribeOn的subscribeAct
 flowable会手动控制观察者和被观察者的速度 通过一个request方法取数据，被观察者也可以通过emiter.request来获取观察者需要的数据数量（只能在同步订阅中使用）
 同步订阅就是被观察者发送一个数据，观察者处理完成之后才会继续处理下一个数据
 背压策略有很多种，包括只取最新的，或者设置缓存区无限大，或者直接抛出异常，或者丢弃超出缓存区的事件
+
+
+
+
+
+```
+//Observable的实现类ObservableCreate
+//被观察者ObservableOnSubscribe  source
+//观察者Consumer  
+//subscribe触发了实现类的subscribeActual
+//subscribeActual触发了source的subscribe和LambdaObserver的onSubscribe方法
+// LambdaObserver的onsubscribe中触发了onSubscribe.accept(this);
+//这里的 onSubscribe=Consumer
+Observable.create(ObservableOnSubscribe<String> {
+    it.onNext("nihao")
+}).subscribe(Consumer {
+
+})
+```
