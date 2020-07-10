@@ -335,3 +335,88 @@ Android里面为什么要设计出Bundle而不是直接用Map结构
 
 Bundle内部是由ArrayMap实现的，ArrayMap的内部实现是两个数组，一个int数组是存储对象数据对应下标，一个对象数组保存key和value，内部使用二分法对key进行排序，所以在添加、删除、查找数据的时候，都会使用二分法查找，只适合于小数据量操作，如果在数据量比较大的情况下，那么它的性能将退化。而HashMap内部则是数组+链表结构，所以在数据量较少的时候，HashMap的Entry Array比ArrayMap占用更多的内存。因为使用Bundle的场景大多数为小数据量，我没见过在两个Activity之间传递10个以上数据的场景，所以相比之下，在这种情况下使用ArrayMap保存数据，在操作速度和内存占用上都具有优势，因此使用Bundle来传递数据，可以保证更快的速度和更少的内存占用。
 另外一个原因，则是在Android中如果使用Intent来携带数据的话，需要数据是基本类型或者是可序列化类型，HashMap使用Serializable进行序列化，而Bundle则是使用Parcelable进行序列化。而在Android平台中，更推荐使用Parcelable实现序列化，虽然写法复杂，但是开销更小，所以为了更加快速的进行数据的序列化和反序列化，系统封装了Bundle类，方便我们进行数据的传输。
+
+
+
+
+
+io字节流
+
+```
+DataOutputStream dataOutputStream = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(new File(""))));
+```
+
+装饰者模式
+
+outputStream作为基类
+
+FileOutputStream对文件的操作
+
+BufferedOutputStream对字节流的操作
+
+DataOutputStream 对特定类型的操作
+
+```
+DataInputStream dataInputStream = new DataInputStream(new BufferedInputStream(new FileInputStream(new File(""))));
+```
+
+inputStream作为基类
+
+与上面的一一对应
+
+
+
+io字符流 字符有行的概念
+
+BufferedWriter 对字符的操作
+
+OutputStreamWriter 建立字节和字符联系的类
+
+
+
+
+
+
+
+```
+RandomAccessFile
+
+seek(long pos) 定位到文件的某一个点
+setLength(long newLength) 设置一个指定大小的空文件
+```
+
+
+
+
+
+打包流程
+
+aapt生成R文件
+
+java文件生成class文件
+
+class文件转换为dex文件
+
+资源文件和dex文件打包成apk
+
+
+
+加固流程  加密之后的dex无法被虚拟机识别，所以用一个aar文件作为壳子
+
+新建一个android moudle build成一个aar文件 作为壳文件
+
+将旧的apk解压到一个指定文件目录B，找到dex文件，转换为byte数组。对byte数组进行加密之后，在放回dex文件
+
+将aar文件转换为dex文件，将dex文件转换为byte，在B目录下面新建一个class.dex文件，将AAR的byte数组写入class.dex
+
+新建一个apk-unsigned.apk文件，将B目录压缩到这个文件中
+
+新建一个apk-signed.apk,将apk-unsigned.apk进行签名转为apk-signed.apk
+
+
+
+脱壳
+
+在Application的attachBaseContext进行脱壳
+
+获取apkFile目录解压到app缓存目录，对dex文件进行解密，将解密后的dex文件通过反射获取dexelementlist，将解密后的dex文件放入elementList中，通过dexclassloader加载到程序中
