@@ -1,3 +1,64 @@
+### Mac下编译ffmpeg
+
+```
+git clone git@github.com:FFmpeg/FFmpeg.git
+//生成makefile文件
+
+./configure --prefix=/usr/local/ffmpeg --enable-gpl --enable-nonfree --enable-libfdk-aac --enable-libx264 --enable-libx265 --enable-filter=delogo --enable-debug --disable-optimizations --enable-libspeex --enable-videotoolbox --enable-shared --enable-pthreads --enable-version3 --enable-hardcoded-tables --disable-x86asm --cc=clang --host-cflags= --host-ldflags=
+```
+
+```
+报错libfdk_aac not found
+brew install fdk-aac
+
+报错Your Xcode (1) is too outdated.
+Please update to Xcode 8.3.2 (or delete it).
+Xcode can be updated from
+
+更新brew 
+brew update-reset
+
+继续报错
+Error: The following directories are not writable by your user:
+/usr/local/share/man/man3
+/usr/local/share/man/man5
+/usr/local/share/man/man7
+执行sudo chown -R $(whoami) /usr/local/share/man/man3 /usr/local/share/man/man5 /usr/local/share
+
+brew install fdk-aac 成功
+
+报错 speex not found using pkg-config
+brew install speex
+brew install pkg-config
+
+报错264 265找不到
+brew install x264
+brew install x265
+brew install sdl2  // 没有安装sdl2无法安装ffplay
+
+最后生成一个config文件，在makefile中被引用ffbuild/config.mak
+执行make && make install
+会在/usr/local/ffmpeg 目录生成库文件
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 搭建播放器
+
+
+
 4个重要的类  
 AVPacket      解码前的数据结构体
 AvFrame       解码后的数据结构体
@@ -48,8 +109,6 @@ swr_convert
 通过引擎接口创建混音器
 初始化混音器outputMixObject
 开始播放
-
-
 
 
 
