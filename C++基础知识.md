@@ -1,9 +1,167 @@
-C++是基于C的加强版本
-C++是面向对象的
-cout << 是输出
-endl是换行
-cin 是命令行输入
-C++对C的加强
+## 基础类型
+
+```c++
+short
+long 
+int 
+float
+double 
+char  字符类型
+void 无类型一般用来表示指针
+const 常量
+指针就是内存地址
+void* char*
+数组
+char c[2]
+int arr[10]
+printf
+%c 字符
+%d 数字
+%p 地址
+```
+
+```c++
+  int *a;
+  a = (int *) malloc(sizeof(int));
+  *a = 10;
+  printf("a=%p,%p,%d\n", &a, a, *a);
+	//a=0x7ffeebacf720,0x7fd7554059d0,10
+  定义了一个int指针，给a分配一个内存空间大小为int大小
+  &a 指针的地址
+  a a的地址
+  *a a的值
+    
+   int c[3] = {0, 1, 2};
+   printf("arr=%p,%p,%d,%d,%d\n", &c, c, c[0], c[1], c[2]);
+	//arr=0x7ffeebacf73c,0x7ffeebacf73c,0,1,2
+```
+
+
+
+## 结构体
+
+```c++
+struct st {
+    int a;
+    int b;
+};
+//main中
+ struct st aas;
+ aas.a = 10;
+ aas.b = 20;
+ printf("struct content = %d,%d\n", aas.a,aas.b);
+//struct content = 10,20
+```
+
+## 枚举
+
+```c++
+enum em {
+    RED = 0,
+    GREEN,
+    BLACK
+};
+//main中
+ enum em colorEm;
+ colorEm = BLACK;
+ printf("the color is %d\n", colorEm);
+	//the color is 2
+```
+
+
+
+## 算数运算
+
+```c++
++ , - , * , / , %
+  //if else 
+ if (aas.a > aas.b) {
+
+    } else {
+
+    }
+
+//for 循环
+    for (int i = 0; i < 10; ++i) {
+        printf("for for %d\n", i);
+    }
+//while循环
+    while (1) {
+        printf("while %d\n", 1);
+        break;
+    }
+```
+
+
+
+## 函数
+
+```c++
+int addC(int a) {
+    return a + 10;
+}
+ printf("function %d\n", addC(1));
+ //function 11
+```
+
+
+
+## 文件操作
+
+```c++
+ FILE *file; //新建文件
+ char buf[1024] = {0,};
+    file = fopen("1.txt", "a+"); //打开没有，没有就新建 a 表示append
+    fwrite("hello world!", 1, 12, file); //向文件中写入数据
+    rewind(file);//游标放在文件的开头
+ 		fread(buf, 1, 26, file);//读取文件
+    fclose(file); //关闭文件
+    printf("buff %s\n", buf);
+//buff hello world!hello world!
+```
+
+
+
+## 指针
+
+```c++
+指针就是内存地址
+栈空间不需要我们管理，系统自动管理 大小为4M？
+堆空间
+void* man = malloc(size)//堆空间分配
+free(man)//释放内存
+
+函数指针
+int func(int x )//这是一个函数
+int (*f)(int x);//这个是函数指针
+f = func //将func函数的首地址赋给指针f 
+//////示例
+int addC(int a) {
+    return a + 10;
+}
+
+int main() {
+    int (*f)(int);
+    f = addC;
+    int result = f(5);
+    printf("func zhi zhen %d", result);
+    return 0;
+}
+//func zhi zhen 15
+```
+
+
+
+## 定义自己的库
+
+
+
+```
+clang -g -c add 
+```
+
+
+
 # namespace命名空间
 - C++命名空间基本概念
 - C++命名空间定义，使用语法，意义
