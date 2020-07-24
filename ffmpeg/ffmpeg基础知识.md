@@ -55,6 +55,23 @@ av_init_packet()//初始化结构体
 av_find_best_stream()//找到最好的流媒体
 av_read_frame()//读取流中的数据包
 av_packet_unref() //释放引用计数，释放包
+抽取的音频需要添加adts头才能播放
+抽取的视频需要在普通帧添加标识码，关键帧前后添加sps,pps才能播放
+```
 
+
+
+## 音视频格式转换
+
+```
+
+ avformat_alloc_output_context2() //分配输出上下文 
+    avformat_free_context() //释放输出上下文
+    avformat_new_stream() //给媒体文件添加新的流
+    avcodec_parameters_copy() //将输入的流媒体codecpar复制到新的媒体流中
+    avformat_write_header() //分配一个流数据并且写入头部
+    进行时间基转换
+    av_interleaved_write_frame() //将帧数据写入输入文件中
+    av_write_trailer()
 ```
 

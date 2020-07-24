@@ -37,6 +37,10 @@ ffmpeg -i outt.flv -vcodec copy -acodec copy outt.mp4 转换格式
 ffmpeg -i input.mp4 -acodec copy -vn out.aac 抽取视频中的音频流
 
 ffmpeg -i input.mp4 -vcodec copy -an out.h264 抽取视频流为H264或者MP4
+
+ffmpeg -i input.mp4 -vn -ar 44100 -ac 2 -f s16le out.pcm 抽取视频中的pcm裸数据
+
+ffmpeg -i out.mp4 -an -c:v rawvideo -pix_fmt yuv420p out.yuv
 ```
 
 
