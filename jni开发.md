@@ -43,3 +43,4 @@ c++层调用java层。
 
 当ndk出现崩溃的时候，可以使用ndk名命令反编译logcat查看崩溃信息 so必须是带有符号表的so文件 obj下面的so文件就是带有符号表的so文件
 adb logcat | ndk-stack -sym so文件路径
+
