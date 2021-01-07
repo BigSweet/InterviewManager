@@ -1,14 +1,17 @@
 android基础问题
 
 ##server的生命周期
-startService -> oncreate->onstartcommand->onstopservice->ondestory
+startService -> oncreate->onstartcommand->ondestory
 bindservice->oncreate->onbind->onunbind->ondestory
-
 
 ##fragment之间传递数据
 eventbus
-通过特定的方法，拿到父fragment，去调用这个方法
+通过父activity传递数据
 接口回调方式传递数据
+
+viewmodel传递数据
+
+
 
 ##让自定义view滑动
 scrollTo与scrollBy方法可以实现滑动，也是通过修改坐标

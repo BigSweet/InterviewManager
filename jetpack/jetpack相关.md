@@ -1,17 +1,20 @@
 jetpack相关
 
-##livedata
+## livedata
+
 观察者模式构建的一个和生命周期有关系的一个库，可以减少内存泄漏，保证UI状态和数据的统一，不需要手动处理生命周期的变化
 一般用到的都是LifecycleBoundObserver，他有一个statechange方法，当生命周期变化后，会通知livedata去更新数据，如果生命周期大于start，就会回调onchange方法，生命周期结束，会移除这个mObserver
 
-##lifecycle
+## lifecycle
+
 通过lifecycleOwner.getLifecycle().addObserver(this)给presenter添加lifecycle，fragment和activity默认实现了lifecycleowner，在presenter里面注解@OnLifecycleEvent，当生命周期变化后就会回调这个对应的方法
 
 原理
 android 9.0ComponentActivity默认实现了LifecycleOwner，lifecycle的一个接口类，在oncreate的时候生成了一个reportfragment,并把这个fragment依赖ComponentActivity，然后再reportfragment生命周期变化的时候，会dispatch lifecycle的event，在handleLifecycleEvent，最后会触发mLifecycleObserver的onStateChanged方法，
 然后这个observer里面有一个callbackinfo，里面用一个map存储了所有标记了@lifecycleevent的方法名和event值，在通过invokeCallbacks传进来的这个event找到对应的方法，通过invoke回调出去
 
-##viewmodel
+## viewmodel
+
 viewmodel一般和livedata结合使用，viewmodel是一个可以感知fragment生命周期的，用来做数据存储的一个库
 
 解决网络请求，异步操作带来的内存泄漏问题，fragment传递数据不方便的问题，解决屏幕旋转导致的数据销毁问题。
@@ -23,3 +26,80 @@ ViewModelProviders.of方法创建AndroidViewModelFactory，ViewModelStore根据�
 
 创建好这个model之后，就可以在里面进行，网络请求，创建livedata回调数据。
 在界面摧毁的时候，viewmodel的clear方法会执行，系统类ComponentActivity添加了LifecycleEventObserver在ondestory的监听会触发getViewModelStore().clear()方法
+
+
+
+## room数据库
+
+建库@database 继承room的database
+
+```
+@Database(entities = [Student::class], version = 1)
+abstract class StudentDataBase : RoomDatabase() {
+    abstract fun studentDao(): StudentDao
+}
+```
+
+建表@enetry
+
+```
+@Entity
+class Student() {
+
+    @PrimaryKey
+    var id: Int = 0
+
+
+    @ColumnInfo(name = "name")
+    var name: String = ""
+
+    @ColumnInfo(name = "age")
+    var age: Int = 0
+
+    override fun toString(): String {
+        return "Student(id=$id, name='$name', age='$age')"
+    }
+
+}
+```
+
+建操作层dao 里面有insert delete update等操作
+
+```
+@Dao
+interface StudentDao {
+
+    @Insert
+    fun insert(vararg student: Student)
+
+
+    @Delete
+    fun delete(student: Student)
+
+    @Query("select * from Student")
+    fun getAll():List<Student>
+}
+```
+
+最后通过线程操作数据库
+
+```
+Thread {
+            val dao = Room.databaseBuilder(applicationContext, StudentDataBase::class.java, "test").build()
+            dao.studentDao().insert(student)
+            Log.d("swt", dao.studentDao().getAll().toString())
+        }.start()
+```
+
+
+
+多张表查询通过主表的主键和外表的外键相关联
+
+数据库升级需要addMigrations
+
+```
+val dao = Room.databaseBuilder(applicationContext, StudentDataBase::class.java, "test")
+                .addMigrations()
+                .build()
+```
+
