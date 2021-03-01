@@ -45,11 +45,6 @@ subscribe触发之后，会从下往上调用上一个SubscribeOn的subscribeAct
 使用flowable观察者模型，发送的事件会进入一个缓存区，根据观察者的需求，响应式的拿取数据
 flowable会手动控制观察者和被观察者的速度 通过一个request方法取数据，被观察者也可以通过emiter.request来获取观察者需要的数据数量（只能在同步订阅中使用）
 同步订阅就是被观察者发送一个数据，观察者处理完成之后才会继续处理下一个数据
-背压策略有很多种，包括只取最新的，或者设置缓存区无限大，或者直接抛出异常，或者丢弃超出缓存区的事件
-
-
-
-
 
 ```
 //Observable的实现类ObservableCreate
@@ -65,3 +60,38 @@ Observable.create(ObservableOnSubscribe<String> {
 
 })
 ```
+
+
+
+背压策略有很多种，包括只取最新的，或者设置缓存区无限大，或者直接抛出异常，或者丢弃超出缓存区的事件
+
+背压模式
+
+```
+public enum BackpressureStrategy {
+    /**
+     * OnNext events are written without any buffering or dropping.
+     * Downstream has to deal with any overflow.
+     * <p>Useful when one applies one of the custom-parameter onBackpressureXXX operators.
+     */
+    MISSING,
+    /**
+     * Signals a MissingBackpressureException in case the downstream can't keep up.
+     */
+    ERROR,
+    /**
+     * Buffers <em>all</em> onNext values until the downstream consumes it.
+     */
+    BUFFER,
+    /**
+     * Drops the most recent onNext value if the downstream can't keep up.
+     */
+    DROP,
+    /**
+     * Keeps only the latest onNext value, overwriting any previous value if the
+     * downstream can't keep up.
+     */
+    LATEST
+}
+```
+
