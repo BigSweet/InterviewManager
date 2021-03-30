@@ -306,7 +306,7 @@ handler执行异步消息的通知，和线程间的切换
 
 悲观锁  每次对数据进行操作的时候，都认为有线程正在修改， synchronized`和`ReentrantLock 就是悲观锁
 
-乐观锁 atomicintger 原子性操作 cas检查（比较和替换只有当oldvalue和newvalue一致的时候才会替换）
+乐观锁 atomicintger 原子性操作 CAS检查（比较和替换只有当oldvalue和newvalue一致的时候才会替换）
 
 饿汉式  直接new出来
 
@@ -329,6 +329,13 @@ RUNTIME注解不仅被保存到class文件中，jvm加载class文件之后，仍
 ```
 @Target(ElementType.TYPE)
 指定注解的作用域，方法，变量，类等
+TYPE , 类，接口，枚举
+FIELD 静态变量
+METHOD 方法
+CONSTRUCTOR 构造函数
+LOCAL_VARIABLE 本地变量
+ANNOTATION_TYPE 注解申明类型
+PACKAGE 包
 ```
 
 ```
@@ -340,8 +347,6 @@ public @interface Presenter {
 presenter注解
 可以定义在类上。
 ```
-
-
 
 
 

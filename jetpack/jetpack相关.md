@@ -5,6 +5,56 @@ jetpack相关
 观察者模式构建的一个和生命周期有关系的一个库，可以减少内存泄漏，保证UI状态和数据的统一，不需要手动处理生命周期的变化
 一般用到的都是LifecycleBoundObserver，他有一个statechange方法，当生命周期变化后，会通知livedata去更新数据，如果生命周期大于start，就会回调onchange方法，生命周期结束，会移除这个mObserver
 
+相关代码如下
+
+livedata添加监听的时候会生成一个LifecycleBoundObserver他继承了LifecycleEventObserver当生命周期变化后，statechange方法会回调
+
+```
+@MainThread
+    public void observe(@NonNull LifecycleOwner owner, @NonNull Observer<? super T> observer) {
+        assertMainThread("observe");
+        if (owner.getLifecycle().getCurrentState() == DESTROYED) {
+            // ignore
+            return;
+        }
+        LifecycleBoundObserver wrapper = new LifecycleBoundObserver(owner, observer);
+        ObserverWrapper existing = mObservers.putIfAbsent(observer, wrapper);
+        if (existing != null && !existing.isAttachedTo(owner)) {
+            throw new IllegalArgumentException("Cannot add the same observer"
+                    + " with different lifecycles");
+        }
+        if (existing != null) {
+            return;
+        }
+        owner.getLifecycle().addObserver(wrapper);
+    }
+```
+
+当statechange执行后,如果是destory生命周期，自动移除监听
+
+```
+@Override
+        public void onStateChanged(@NonNull LifecycleOwner source,
+                @NonNull Lifecycle.Event event) {
+            if (mOwner.getLifecycle().getCurrentState() == DESTROYED) {
+                removeObserver(mObserver);
+                return;
+            }
+            activeStateChanged(shouldBeActive());
+        }
+```
+
+判断当前生命周期是否在STARTED之后
+
+```
+ @Override
+        boolean shouldBeActive() {
+            return mOwner.getLifecycle().getCurrentState().isAtLeast(STARTED);
+        }
+```
+
+
+
 ## lifecycle
 
 通过lifecycleOwner.getLifecycle().addObserver(this)给presenter添加lifecycle，fragment和activity默认实现了lifecycleowner，在presenter里面注解@OnLifecycleEvent，当生命周期变化后就会回调这个对应的方法
@@ -12,6 +62,110 @@ jetpack相关
 原理
 android 9.0ComponentActivity默认实现了LifecycleOwner，lifecycle的一个接口类，在oncreate的时候生成了一个reportfragment,并把这个fragment依赖ComponentActivity，然后再reportfragment生命周期变化的时候，会dispatch lifecycle的event，在handleLifecycleEvent，最后会触发mLifecycleObserver的onStateChanged方法，
 然后这个observer里面有一个callbackinfo，里面用一个map存储了所有标记了@lifecycleevent的方法名和event值，在通过invokeCallbacks传进来的这个event找到对应的方法，通过invoke回调出去
+
+相关代码如下
+
+```
+@Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mSavedStateRegistryController.performRestore(savedInstanceState);
+        ReportFragment.injectIfNeededIn(this);
+        if (mContentLayoutId != 0) {
+            setContentView(mContentLayoutId);
+        }
+    }
+```
+
+ReportFragment中,每一个生命周期触发的时候，都会分发
+
+```
+@Override
+    public void onStart() {
+        super.onStart();
+        dispatchStart(mProcessListener);
+        dispatch(Lifecycle.Event.ON_START);
+    }
+
+```
+
+触发所有的mLifecycleObserver的statechange方法
+
+```
+void dispatchEvent(LifecycleOwner owner, Event event) {
+            State newState = getStateAfter(event);
+            mState = min(mState, newState);
+            mLifecycleObserver.onStateChanged(owner, event);
+            mState = newState;
+        }
+```
+
+标记了注解@lifecycleevent的方法回调流程
+
+
+
+```
+LifecycleRegistry类中
+ @Override
+    public void addObserver(@NonNull LifecycleObserver observer) {
+        //每次都会new一个ObserverWithState
+        ObserverWithState statefulObserver = new ObserverWithState(observer, initialState);
+    }
+    
+    static class ObserverWithState {
+        State mState;
+        LifecycleEventObserver mLifecycleObserver;
+
+        ObserverWithState(LifecycleObserver observer, State initialState) {
+            mLifecycleObserver = Lifecycling.lifecycleEventObserver(observer);
+            mState = initialState;
+        }
+
+    }
+    
+主要是这个方法
+Lifecycling.lifecycleEventObserver(observer);
+
+@NonNull
+    static LifecycleEventObserver lifecycleEventObserver(Object object) {   
+        int type = getObserverConstructorType(klass); 
+    }
+    
+    private static int getObserverConstructorType(Class<?> klass) {
+        int type = resolveObserverCallbackType(klass);
+        return type;
+    }
+    
+    private static int resolveObserverCallbackType(Class<?> klass) { 
+        boolean hasLifecycleMethods = ClassesInfoCache.sInstance.hasLifecycleMethods(klass);
+    }
+    
+    boolean hasLifecycleMethods(Class<?> klass) {
+        Method[] methods = getDeclaredMethods(klass);
+        for (Method method : methods) {
+            OnLifecycleEvent annotation = method.getAnnotation(OnLifecycleEvent.class);
+            if (annotation != null) {
+                createInfo(klass, methods);
+                return true;
+            }
+        }
+    }
+    
+    
+     private CallbackInfo createInfo(Class<?> klass, @Nullable Method[] declaredMethods) {
+     
+        CallbackInfo info = new CallbackInfo(handlerToEvent);
+        mCallbackMap.put(klass, info);
+        mHasLifecycleMethods.put(klass, hasLifecycleMethods);
+        return info;
+    }
+    
+    createinfo会将所有标记了注解的方法存在mCallbackMap中
+    当ReflectiveGenericLifecycleObserver的statechange触发的时候会触发这些callback的方法
+    
+    
+    
+```
 
 ## viewmodel
 
@@ -22,6 +176,9 @@ viewmodel一般和livedata结合使用，viewmodel是一个可以感知fragment�
 原理解析
 ViewModelProviders.of方法创建AndroidViewModelFactory，ViewModelStore根据这俩个参数创建ViewModelProvider，在调用get方法获取viewmodel实例
 如果model是继承androidviewmodel就会通过类的.getConstructor获取这个类的实例对象，然后存入mViewModelStore中
+
+mViewModelStore中使用map来存储，key是model的类名
+
 如果不是继承androidviewmodel就会通过类的modelClass.newInstance(),创建实例化对象。
 
 创建好这个model之后，就可以在里面进行，网络请求，创建livedata回调数据。
