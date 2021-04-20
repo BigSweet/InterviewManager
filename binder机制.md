@@ -36,11 +36,6 @@ aidl分为proxy，和stub。
 _data  //发送到服务端的数据 
 _reply // 服务端返回的数据
 
-client                proxy                binder           stub           service
-aidl.method       mremote.transact       ontransact		 this.method  	 触发实现类中的对应方法
-
-
-
 ![image-20210419140404511](/Users/yanzhe/android/知识整理/image/image-20210419140404511.png)
 
 
@@ -49,312 +44,107 @@ aidl.method       mremote.transact       ontransact		 this.method  	 触发实�
 
 进程通信的时候的几种状态
 
-服务端通过addservice将binder实体注册添加到servicemanager中，
-客户端获取service的时候，servermanager会在注册的Service列表中查找该服务，返回给client
-客户端获取到服务端的binder，转换为服务端的aidl，就能调用服务端相对应的方法了。
+## binder机制
 
-系统binder通信流程
-
-![image-20210419161556703](/Users/yanzhe/android/知识整理/image/image-20210419161556703.png)
-
+系统中很多机制都涉及到binder机制，所以对binder机制有一个大致的了解是必不可少的。
+本文从bindService方法出发
+流程分析为bindService->connection的onServiceConnected触发来了解一下binder机制
 ```
-bindService
- @Override
-    public boolean bindService(Intent service, ServiceConnection conn,
-            int flags) {
-        return mBase.bindService(service, conn, flags);
-    }
-    mBase是context
-    contextimpl是context的实现类
-    
-    
+ private ServiceConnection connection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+        }
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+        }
+    };
+```
 
+首先了解一下一些基本的概念
+    
+进程与进程之间是相互隔离的，每个进程都有自己的用户空间。
+
+他们通过内核空间进行数据交互。
+binder通信机制
+
+通过内存映射将进程2的数据和内核空间的一块区域的数据进行映射
+
+当进程1通过copy_from_user将数据拷贝到内核空间的时候，由于内核空间的数据和进程2用户空间的数据存在映射关系，直接就能刷新
+
+binder机制通过aidl通信
+aidl分为proxy，和stub。
+客户端获取aidl实例（proxy），proxy用来发送数据,
+服务端实现aidl实例(stub), stub用来接收数据
+_data  //发送到服务端的数据 
+_reply // 服务端返回的数据
+
+系统binder通信的流程涉及到的stub和proxy为下所示,后面的代码分析中会解析这个图中的各类各自负责的责任
+![在这里插入图片描述](https://img-blog.csdnimg.cn/20210420134252479.png)
+```
     @Override
     public boolean bindService(Intent service, ServiceConnection conn,
             int flags) {
-        warnIfCallingFromSystemProcess();
+	return mBase.bindService(service, conn, flags);
+    }
+```
+mbase是Context，context的默认实现类为ContextImpl
+所以打开ContextImpl中的bindService
+```
+	//ContextImpl
+    @Override
+    public boolean bindService(Intent service, ServiceConnection conn,
+            int flags) {
         return bindServiceCommon(service, conn, flags, Process.myUserHandle());
     }
-    
-     private boolean bindServiceCommon(Intent service, ServiceConnection conn, int flags,
+
+
+ private boolean bindServiceCommon(Intent service, ServiceConnection conn, int flags,
             UserHandle user) {
-             int res = ActivityManagerNative.getDefault().bindService(
-                mMainThread.getApplicationThread(), getActivityToken(), service,
-                service.resolveTypeIfNeeded(getContentResolver()),
-                sd, flags, getOpPackageName(), user.getIdentifier());
-            }
-    
-    activitymanagernative
-    static public IActivityManager getDefault() {
-        return gDefault.get();
-    }
-
-IActivityManager是一个接口相当于aidlinterface
-
- private static final Singleton<IActivityManager> gDefault = new Singleton<IActivityManager>() {
-        protected IActivityManager create() {
-            IBinder b = ServiceManager.getService("activity");
-            if (false) {
-                Log.v("ActivityManager", "default service binder = " + b);
-            }
-            IActivityManager am = asInterface(b);
-            if (false) {
-                Log.v("ActivityManager", "default service = " + am);
-            }
-            return am;
-        }
-    };
-    
-    public abstract class ActivityManagerNative extends Binder implements IActivityManager
-{
-
-    static public IActivityManager asInterface(IBinder obj) {
-        if (obj == null) {
-            return null;
-        }
-        IActivityManager in =
-            (IActivityManager)obj.queryLocalInterface(descriptor);
-        if (in != null) {
-            return in;
-        }
-
-        return new ActivityManagerProxy(obj);
-    }
-}
-    出现了ActivityManagerProxy，aidl发送数据用的
-    ActivityManagerNative继承了binder实现了aidl接口，所以ActivityManagerNative是stub
-    
-    在ActivityManagerProxy中找到bindService如下
-    public int bindService(IApplicationThread caller, IBinder token,
-            Intent service, String resolvedType, IServiceConnection connection,
-            int flags,  String callingPackage, int userId) throws RemoteException {
-        Parcel data = Parcel.obtain();
-        Parcel reply = Parcel.obtain();
-        data.writeInterfaceToken(IActivityManager.descriptor);
-        data.writeStrongBinder(caller != null ? caller.asBinder() : null);
-        data.writeStrongBinder(token);
-        service.writeToParcel(data, 0);
-        data.writeString(resolvedType);
-        data.writeStrongBinder(connection.asBinder());
-        data.writeInt(flags);
-        data.writeString(callingPackage);
-        data.writeInt(userId);
-        mRemote.transact(BIND_SERVICE_TRANSACTION, data, reply, 0);
-        reply.readException();
-        int res = reply.readInt();
-        data.recycle();
-        reply.recycle();
-        return res;
-    }
-    
-    通过mremote调用stub中的bing_service
-    如下
-     case BIND_SERVICE_TRANSACTION: {
-            data.enforceInterface(IActivityManager.descriptor);
-            IBinder b = data.readStrongBinder();
-            IApplicationThread app = ApplicationThreadNative.asInterface(b);
-            IBinder token = data.readStrongBinder();
-            Intent service = Intent.CREATOR.createFromParcel(data);
-            String resolvedType = data.readString();
-            b = data.readStrongBinder();
-            int fl = data.readInt();
-            String callingPackage = data.readString();
-            int userId = data.readInt();
-            IServiceConnection conn = IServiceConnection.Stub.asInterface(b);
-            int res = bindService(app, token, service, resolvedType, conn, fl,
-                    callingPackage, userId);
-            reply.writeNoException();
-            reply.writeInt(res);
-            return true;
-        }
-        ???
-   接着调用到activitymanagerservice中的bind
-    public int bindService(IApplicationThread caller, IBinder token, Intent service,
-            String resolvedType, IServiceConnection connection, int flags, String callingPackage,
-            int userId) throws TransactionTooLargeException {
- 
-        synchronized(this) {
-            return mServices.bindServiceLocked(caller, token, service,
-                    resolvedType, connection, flags, callingPackage, userId);
-        }
-    }
-   
-   bindServiceLocked方法中主要看下面俩个方法
-   bringUpServiceLocked
-   requestServiceBindingLocked
-        
-```
-
-
-
-![image-20210419144237469](/Users/yanzhe/android/知识整理/image/image-20210419144237469.png)
-
-
-
-首先看第一种和第二种情况
-
-
-          在bringUpServiceLocked方法中主要如下
-    
-    	//第二种情况
-       if (app != null && app.thread != null) {
-                    try {
-                        app.addPackage(r.appInfo.packageName, r.appInfo.versionCode, mAm.mProcessStats);
-                        realStartServiceLocked(r, app, execInFg);
-
-
-​            
-       realStartServiceLocked方法下面调用这个
-       app.thread.scheduleCreateService
-       app.thread是activitythread里面的applicationthread
-       
-       applicationthread里面的方法如下
-         public final void scheduleCreateService(IBinder token,
-                ServiceInfo info, CompatibilityInfo compatInfo, int processState) {
-            updateProcessState(processState, false);
-            CreateServiceData s = new CreateServiceData();
-            s.token = token;
-            s.info = info;
-            s.compatInfo = compatInfo;
-    
-            sendMessage(H.CREATE_SERVICE, s);
-        }
-        通过handler发送消息
-        
-         case CREATE_SERVICE:
-                        Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "serviceCreate");
-                        handleCreateService((CreateServiceData)msg.obj);
-                        Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
-                        break;
-
-
-​                        
-     private void handleCreateService(CreateServiceData data) {
-            
-            unscheduleGcIdler();
-    
-            LoadedApk packageInfo = getPackageInfoNoCheck(
-                    data.info.applicationInfo, data.compatInfo);
-            Service service = null;
-            try {
-                java.lang.ClassLoader cl = packageInfo.getClassLoader();
-                service = (Service) cl.loadClass(data.info.name).newInstance();
-            } catch (Exception e) {
-                if (!mInstrumentation.onException(service, e)) {
-                    throw new RuntimeException(
-                        "Unable to instantiate service " + data.info.name
-                        + ": " + e.toString(), e);
-                }
-            }
-    
-            try {
-                if (localLOGV) Slog.v(TAG, "Creating service " + data.info.name);
-    
-                ContextImpl context = ContextImpl.createAppContext(this, packageInfo);
-                context.setOuterContext(service);
-    
-                Application app = packageInfo.makeApplication(false, mInstrumentation);
-                service.attach(context, this, data.info.name, data.token, app,
-                        ActivityManagerNative.getDefault());
-                service.onCreate();
-                mServices.put(data.token, service);
-                try {
-                    ActivityManagerNative.getDefault().serviceDoneExecuting(
-                            data.token, SERVICE_DONE_EXECUTING_ANON, 0, 0);
-                } catch (RemoteException e) {
-                    // nothing to do.
-                }
-            } catch (Exception e) {
-                if (!mInstrumentation.onException(service, e)) {
-                    throw new RuntimeException(
-                        "Unable to create service " + data.info.name
-                        + ": " + e.toString(), e);
-                }
-            }
-        }
-        
-        通过反射创建了service
-        
-        接下来看第一种情况如果app等于null
-          if (app == null) {
-                if ((app=mAm.startProcessLocked(procName, r.appInfo, true, intentFlags,
-                        "service", r.name, false, isolated, false)) == null) {
-                    String msg = "Unable to launch app "
-                            + r.appInfo.packageName + "/"
-                            + r.appInfo.uid + " for service "
-                            + r.intent.getIntent() + ": process is bad";
-                    Slog.w(TAG, msg);
-                    bringDownServiceLocked(r);
-                    return msg;
-                }
-                if (isolated) {
-                    r.isolatedProc = app;
-                }
-            }
-
-
-​            
-            if ((app=mAm.startProcessLocked(procName, r.appInfo, true, intentFlags,
-            创建了进程
-
-
-
-接下来看requestServiceBindingLocked
-
-```java
- r.app.thread.scheduleBindService(r, i.intent.getIntent(), rebind,
-                        r.app.repProcState);
-                        
- public final void scheduleBindService(IBinder token, Intent intent,
-                boolean rebind, int processState) {
-            updateProcessState(processState, false);
-            BindServiceData s = new BindServiceData();
-            s.token = token;
-            s.intent = intent;
-            s.rebind = rebind;
-
-            if (DEBUG_SERVICE)
-                Slog.v(TAG, "scheduleBindService token=" + token + " intent=" + intent + " uid="
-                        + Binder.getCallingUid() + " pid=" + Binder.getCallingPid());
-            sendMessage(H.BIND_SERVICE, s);
-        }
-        handler发送BIND_SERVICE
-          
-          private void handleBindService(BindServiceData data)
-      {  
-								if (!data.rebind) {
-                        IBinder binder = s.onBind(data.intent);
-                        ActivityManagerNative.getDefault().publishService(
-                                data.token, data.intent, binder);
-                    } else {
-                        s.onRebind(data.intent);
-                        ActivityManagerNative.getDefault().serviceDoneExecuting(
-                                data.token, SERVICE_DONE_EXECUTING_ANON, 0, 0);
-                    }
-        }
-      
-调用onbind方法
-  如果已经绑定了就调用s.onRebind(data.intent); //第四种情况
-  publishService调用ams的publishService方法
- 最后触发 c.conn.connected(r.name, service);
-                        
- final IServiceConnection conn;  // The client connection.
-
-在bindservice的时候可以知道
- 	IServiceConnection sd;
-        if (conn == null) {
-            throw new IllegalArgumentException("connection is null");
-        }
+        IServiceConnection sd;
+     
         if (mPackageInfo != null) {
             sd = mPackageInfo.getServiceDispatcher(conn, getOuterContext(),
                     mMainThread.getHandler(), flags);
         } else {
             throw new RuntimeException("Not supported in system context");
         }
-IServiceConnection 等于 mPackageInfo.getServiceDispatcher -》sd.getIServiceConnection();
- private final ServiceDispatcher.InnerConnection mIServiceConnection;
+            int res = ActivityManagerNative.getDefault().bindService(
+                mMainThread.getApplicationThread(), getActivityToken(), service,
+                service.resolveTypeIfNeeded(getContentResolver()),
+                sd, flags, getOpPackageName(), user.getIdentifier());
+            
+    }
+    
+```
+这里有几个地方要注意
+```
+ IServiceConnection sd;
+ sd = mPackageInfo.getServiceDispatcher(conn, getOuterContext(),
+                    mMainThread.getHandler(), flags);
+```
+打开getServiceDispatcher
+```
+public final IServiceConnection getServiceDispatcher(ServiceConnection c,
+            Context context, Handler handler, int flags) {
+        synchronized (mServices) {
+            LoadedApk.ServiceDispatcher sd = null;
+            if (sd == null) {
+                sd = new ServiceDispatcher(c, context, handler, flags);
+            }
+            return sd.getIServiceConnection();
+        }
+    }
+    //直接看最后一行sd.getIServiceConnection();
 
- private static class InnerConnection extends IServiceConnection.Stub {
+   IServiceConnection getIServiceConnection() {
+            return mIServiceConnection;
+        }
+
+
+        //而serviceconnection定义如下
+		 private final ServiceDispatcher.InnerConnection mIServiceConnection;
+
+		private static class InnerConnection extends IServiceConnection.Stub {
             final WeakReference<LoadedApk.ServiceDispatcher> mDispatcher;
 
             InnerConnection(LoadedApk.ServiceDispatcher sd) {
@@ -369,20 +159,146 @@ IServiceConnection 等于 mPackageInfo.getServiceDispatcher -》sd.getIServiceCo
             }
         }
 
-最后触发的是这个地方的connected方法
-  
-   public void connected(ComponentName name, IBinder service) {
+```
+所以这里得出结论
+IServiceConnection sd = InnerConnection
+接下来回到上面继续看bindServiceCommon
+看另外的一个关键点
+
+```
+int res = ActivityManagerNative.getDefault().bindService(
+                mMainThread.getApplicationThread(), getActivityToken(), service,
+                service.resolveTypeIfNeeded(getContentResolver()),
+                sd, flags, getOpPackageName(), user.getIdentifier());
+```
+首先打开ActivityManagerNative.getDefault().
+```
+static public IActivityManager getDefault() {
+        return gDefault.get();
+    }
+
+ private static final Singleton<IActivityManager> gDefault = new Singleton<IActivityManager>() {
+        protected IActivityManager create() {
+            IBinder b = ServiceManager.getService("activity");
+            IActivityManager am = asInterface(b);
+            return am;
+        }
+    };
+
+public abstract class ActivityManagerNative extends Binder implements IActivityManager
+{
+
+    static public IActivityManager asInterface(IBinder obj) {
+        return new ActivityManagerProxy(obj);
+    }
+
+```
+ActivityManagerProxy为proxy
+同时ActivityManagerNative继承binder是属于stub类
+而IActivityManager是一个接口属于aidl接口
+ActivityManagerNative是一个抽象类它的子类是ActivityManagerService也就是stub的实现类
+
+```
+public final class ActivityManagerService extends ActivityManagerNative
+```
+接下来继续看ActivityManagerNative.getDefault().bindService这行代码
+其实也就是触发的ActivityManagerProxy的bindService
+
+```
+ public int bindService(IApplicationThread caller, IBinder token,
+            Intent service, String resolvedType, IServiceConnection connection,
+            int flags,  String callingPackage, int userId) throws RemoteException {
+      
+        mRemote.transact(BIND_SERVICE_TRANSACTION, data, reply, 0);
+
+        return res;
+    }
+```
+mRemote发送了一个BIND_SERVICE_TRANSACTION到stub类中
+接下来到ActivityManagerNative的BIND_SERVICE_TRANSACTION中
+
+```
+  case BIND_SERVICE_TRANSACTION: {
+            IServiceConnection conn = IServiceConnection.Stub.asInterface(b);
+            int res = bindService(app, token, service, resolvedType, conn, fl,
+                    callingPackage, userId);
+         
+            return true;
+        }
+```
+继续触发了bindService，也就是stub的实现类ActivityManagerService的
+bindService
+```
+//ActivityManagerService
+
+public int bindService(IApplicationThread caller, IBinder token, Intent service,
+            String resolvedType, IServiceConnection connection, int flags, String callingPackage,
+            int userId) throws TransactionTooLargeException {
+        synchronized(this) {
+            return mServices.bindServiceLocked(caller, token, service,
+                    resolvedType, connection, flags, callingPackage, userId);
+        }
+    }
+  //  继续跟进bindServiceLocked位于ActiveServices类中
+ int bindServiceLocked(IApplicationThread caller, IBinder token, Intent service,
+            String resolvedType, IServiceConnection connection, int flags,
+            String callingPackage, int userId) throws TransactionTooLargeException {
+      
+
+   		//uid校验 binder机制特点
+        if (callerApp.info.uid == Process.SYSTEM_UID) {
+         
+        }
+        //如果service是BIND_AUTO_CREATE就会进入bringUpServiceLocked
+        //这里是创建service
+       if ((flags&Context.BIND_AUTO_CREATE) != 0) {
+                s.lastActivity = SystemClock.uptimeMillis();
+                if (bringUpServiceLocked(s, service.getFlags(), callerFg, false) != null) {
+                    return 0;
+                }
+            }
+   //如果service创建了就会走下面        
+     if (s.app != null && b.intent.received) {
+                try {
+                    c.conn.connected(s.name, b.intent.binder);
+                } catch (Exception e) {         
+                }
+                if (b.intent.apps.size() == 1 && b.intent.doRebind) {
+                    requestServiceBindingLocked(s, b.intent, callerFg, true);
+                }
+            } else if (!b.intent.requested) {
+                requestServiceBindingLocked(s, b.intent, callerFg, false);
+            }
+        return 1;
+    }
+```
+先看这一行关键代码
+//注意这里是service创建了的情况下没创建的话走else里面的requestServiceBindingLocked方法
+  c.conn.connected(s.name, b.intent.binder);
+c.conn点进去发现final IServiceConnection conn;  
+conn是IServiceConnection
+而在最开始我们已经得出结论
+IServiceConnection=IServiceConnection sd = InnerConnection
+也就是说这里触发的connect方法是位于InnerConnection中的connect方法
+```
+public void connected(ComponentName name, IBinder service) throws RemoteException {
+                LoadedApk.ServiceDispatcher sd = mDispatcher.get();
+                if (sd != null) {
+                    sd.connected(name, service);
+                }
+            }
+```
+触发sd.connected方法
+
+```
+ public void connected(ComponentName name, IBinder service) {
             if (mActivityThread != null) {
                 mActivityThread.post(new RunConnection(name, service, 0));
             } else {
                 doConnected(name, service);
             }
         }
-
-public void doConnected(ComponentName name, IBinder service) {
-            ServiceDispatcher.ConnectionInfo old;
-            ServiceDispatcher.ConnectionInfo info;
-            // If there was an old service, it is not disconnected.
+ public void doConnected(ComponentName name, IBinder service) {
             if (old != null) {
                 mConnection.onServiceDisconnected(name);
             }
@@ -391,37 +307,191 @@ public void doConnected(ComponentName name, IBinder service) {
                 mConnection.onServiceConnected(name, service);
             }
         }
-
- 最后触发了这个connecetion的serviceconncet方法
-   
-   
-    private void bindService() {
-        Intent intent = new Intent();
-        intent.setComponent(new ComponentName("com.xx.leo_service", "com.xx.leo_service.LeoAidlService"));
-        bindService(intent, connection, Context.BIND_AUTO_CREATE);
-    }
-
-
-    private ServiceConnection connection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            Log.e(TAG, "onServiceConnected: success");
-            iLeoAidl = ILeoAidl.Stub.asInterface(service);
+```
+在doConnected方法的最后可以看到onServiceDisconnected和onServiceConnected
+也就是说到这里binderservice到onServiceConnected的流程就结束了
+有兴趣的可以继续往下看
+分析bindservice是怎么触发onBind
+和onRebind
+分为四种情况
+![在这里插入图片描述](https://img-blog.csdnimg.cn/20210420144014876.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzE1NTI3NzA5,size_16,color_FFFFFF,t_70)
+首先看第二种情况
+关键代码如下
+bringUpServiceLocked
+```
+//如果service是BIND_AUTO_CREATE就会进入bringUpServiceLocked
+        //这里是创建service
+       if ((flags&Context.BIND_AUTO_CREATE) != 0) {
+                s.lastActivity = SystemClock.uptimeMillis();
+                if (bringUpServiceLocked(s, service.getFlags(), callerFg, false) != null) {
+                    return 0;
+                }
+            }
+     //第二种情况如果app!=null创建service流程
+private final String bringUpServiceLocked(ServiceRecord r, int intentFlags, boolean execInFg,
+            boolean whileRestarting) throws TransactionTooLargeException {
+              if (app != null && app.thread != null) {
+                try {
+                    realStartServiceLocked(r, app, execInFg);
+            }
+            }
+            //第一种情况创建进程startProcessLocked就是Zygote进程fork的过程就不深入分析了
+if (app == null) {
+            if ((app=mAm.startProcessLocked(procName, r.appInfo, true, intentFlags,
+                    "service", r.name, false, isolated, false)) == null) {
+                bringDownServiceLocked(r);
+                return msg;
+            }
         }
 
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            Log.e(TAG, "onServiceDisconnected: success");
-            iLeoAidl = null;
-        }
-    };
-所以bindservice触发了serviceconnected方法
-
+private final void realStartServiceLocked(ServiceRecord r,
+            ProcessRecord app, boolean execInFg) throws RemoteException {
+            app.thread.scheduleCreateService(r, r.serviceInfo,
+                    mAm.compatibilityInfoForPackageLocked(r.serviceInfo.applicationInfo),
+                    app.repProcState);
+            }
+            
+app.thread是activitythread里面的applicationthread
 ```
 
+app.thread点进去之后是IApplicationThread
+```
+public interface IApplicationThread extends IInterface {
+}
+```
+IApplicationThread继承IInterface，这里又是一次binder机制
+IApplicationThread是IInterface接口
+ApplicationThreadNative是stub
+ApplicationThreadProxy是proxy
+那么scheduleCreateService其实触发的就是ApplicationThreadNative中的
+scheduleCreateService方法也就是触发ApplicationThreadNative的实现类
+ApplicationThread中的scheduleCreateService方法
+ApplicationThread位于activitythread中
+那么applicationthread中的scheduleCreateService如下
+
+```
+public final void scheduleCreateService(IBinder token,
+                ServiceInfo info, CompatibilityInfo compatInfo, int processState) {
+            updateProcessState(processState, false);
+            CreateServiceData s = new CreateServiceData();
+            s.token = token;
+            s.info = info;
+            s.compatInfo = compatInfo;
+
+            sendMessage(H.CREATE_SERVICE, s);
+        }
+```
+handler发送了一个事件CREATE_SERVICE
+
+```
+case CREATE_SERVICE:
+                    Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "serviceCreate");
+                    handleCreateService((CreateServiceData)msg.obj);
+                    Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
+                    break;
+
+ private void handleCreateService(CreateServiceData data) {
+ try {
+            java.lang.ClassLoader cl = packageInfo.getClassLoader();
+            service = (Service) cl.loadClass(data.info.name).newInstance();
+        } 
+ }
+service.attach(context, this, data.info.name, data.token, app,
+                    ActivityManagerNative.getDefault());
+            service.onCreate();
+```
+通过反射创建了service然后调用oncreate方法
+接下来看第三第四种情况
+在bindServiceLocked中
+```
+//如果service创建了就会走下面        
+     if (s.app != null && b.intent.received) {
+                try {
+                    c.conn.connected(s.name, b.intent.binder);
+                } catch (Exception e) {         
+                }
+                if (b.intent.apps.size() == 1 && b.intent.doRebind) {
+                    requestServiceBindingLocked(s, b.intent, callerFg, true);
+                }
+            } else if (!b.intent.requested) {
+                requestServiceBindingLocked(s, b.intent, callerFg, false);
+            }
+        return 1;
+    }
+```
+requestServiceBindingLocked方法
+```
+private final boolean requestServiceBindingLocked(ServiceRecord r, IntentBindRecord i,
+            boolean execInFg, boolean rebind) throws TransactionTooLargeException {
+             r.app.thread.scheduleBindService(r, i.intent.getIntent(), rebind,
+                        r.app.repProcState);
+            }
+```
+直接看application的scheduleBindService
+```
+  public final void scheduleBindService(IBinder token, Intent intent,
+                boolean rebind, int processState) {
+        
+            sendMessage(H.BIND_SERVICE, s);
+        }
+
+case BIND_SERVICE:
+                    Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "serviceBind");
+                    handleBindService((BindServiceData)msg.obj);
+                    Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
+                    break;
 
 
+private void handleBindService(BindServiceData data) {
+        Service s = mServices.get(data.token);
+        if (s != null) {
+                try {
+                    if (!data.rebind) {
+                        IBinder binder = s.onBind(data.intent);
+                        ActivityManagerNative.getDefault().publishService(
+                                data.token, data.intent, binder);
+                    } else {
+                        s.onRebind(data.intent);
+                        ActivityManagerNative.getDefault().serviceDoneExecuting(
+                                data.token, SERVICE_DONE_EXECUTING_ANON, 0, 0);
+                    }
+             
+        }
+    }
+```
+到这里就能看到onBind和onRebind了
+在service绑定了之后会触发
+ActivityManagerNative.getDefault().publishService(
+                                data.token, data.intent, binder);
+                                
+直接定位到activitymanagerservice中的publishService
+```
+ public void publishService(IBinder token, Intent intent, IBinder service) {
+            mServices.publishServiceLocked((ServiceRecord)token, intent, service);
+    }
+    
+    然后看publishServiceLocked位于ActiveServices下面
+     void publishServiceLocked(ServiceRecord r, Intent intent, IBinder service) {
+      c.conn.connected(r.name, service);
+     }
+```
+最终又调用了这个方法，到这里就分析完了
+总结一波
+binder机制主要设计到4个类
+一个aidl接口
+一个proxy类
+一个stub类
+stub是抽象类有它自己的实现类
+比如IActivityManager是aidl接口
+ActivityManagerNative是stub抽象类
+ActivityManagerProxy是proxy类
+ActivityManagerService是stub的实现类
 
+比如IApplicationThread是aidl接口
+ApplicationThreadNative是stub抽象类
+ApplicationThreadProxy是proxy类
+位于ActivityThread中的ApplicationThread是stub的实现类
+一般是先触发proxy方法，proxy触发stub抽想类的方法，他们都继承aidl接口触发stub方法后，找stub实现类对应的方法
 
 自定义service binder通信
 定义aidl文件夹，定义aidl方法和数据类
@@ -588,8 +658,6 @@ public class MainActivity extends AppCompatActivity {
     }
 }
 ```
-
-
 
 binder的memorymap函数，会将内核空间和用户空间对应，用户空间可以直接访问内核空间的数据
  映射原理
