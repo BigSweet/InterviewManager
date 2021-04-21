@@ -1,6 +1,7 @@
 
 
 ##startactivity的启动过程
+
 Launcher就是系统桌面就是一个activity
 launch进程（app的第一进程zygote进程fork）调用startactvity，当前activity在通过它的管家Instrumentation发起请求。告诉ams(activitymanagerserver)去启动这个activity
 ams收到这个消息后，会通过applicationthread发送一条消息给activitythread中的一个H类这个类继承了Handler，先暂停当前的activity。
@@ -8,6 +9,18 @@ ams收到这个消息后，会通过applicationthread发送一条消息给activi
 然后在检测activity的合法性，在给这个activity配置一个栈，将这个activity attachapplication，在通过applicationthread,发送一个LAUNCH_ACTIVITY消息给activitythread的H类去启动这个activity，在通过这个actvity的Instrumentation调用生命周期oncreate
 
 
+
+源码阅读后对启动流程的理解
+
+activity通知Instrumentation去startactivity，Instrumentation触发activitymanagerproxy（proxy）的startactivity，触发activitymanagernative的方法（stub），在触发stub的实现类activitymanagerservice的
+
+startactivity方法，在stack栈中调用resumetopactivity，会先暂停上一个activity，调用startpauselocked，通过app.thread.schedulePauseActivity调用ApplicationThreadProxy的schedulePauseActivity方法。在触发applicationnative的方法，在触发applicationthread（stub的实现类）的schedulePauseActivity方法，
+
+通过H发送pause事件给activitythread，activitythread通知mInstrumentation.callActivityOnPause(r.activity);
+
+暂停完成之后，触发ActivityManagerNative.getDefault().activityPaused(token);
+
+再次到栈中调用resumetopactivity，走到realstartactivitylocked，在走到applicaitonthread发送launch_activity时间，触发perfromlauchchactivity，mInstrumentation.callActivityOnCreate,通过mInstrumentation在触发activity的oncreate
 
 ![image-20210419140404511](/Users/yanzhe/android/知识整理/image/20160822162305109.png)
 
