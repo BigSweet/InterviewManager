@@ -9,6 +9,14 @@ ams收到这个消息后，会通过applicationthread发送一条消息给activi
 
 
 
+![image-20210419140404511](/Users/yanzhe/android/知识整理/image/20160822162305109.png)
+
+
+
+Activity-30启动流程
+
+![android30activity](/Users/yanzhe/Desktop/android30activity.png)
+
 activity启动模式
 从A启动Bactivity的生命周期是
 onpause(A)->oncreate(B)->onstart(B)->onresume(B)->onstop(A)
