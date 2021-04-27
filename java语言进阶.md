@@ -314,42 +314,6 @@ handler执行异步消息的通知，和线程间的切换
 
 
 
-
-
-注解
-
-```
-@Retention(RetentionPolicy.RUNTIME)
-指定注解的生命周期，有三种类型
-SOURCE 注解只保留在源文件，当Java文件编译成class文件的时候，注解被遗弃；
-CLASS  注解被保留到class文件，但jvm加载class文件时候被遗弃，这是默认的生命周期；
-RUNTIME注解不仅被保存到class文件中，jvm加载class文件之后，仍然存在；
-```
-
-```
-@Target(ElementType.TYPE)
-指定注解的作用域，方法，变量，类等
-TYPE , 类，接口，枚举
-FIELD 静态变量
-METHOD 方法
-CONSTRUCTOR 构造函数
-LOCAL_VARIABLE 本地变量
-ANNOTATION_TYPE 注解申明类型
-PACKAGE 包
-```
-
-```
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
-public @interface Presenter {
-    Class<?> value();
-}
-presenter注解
-可以定义在类上。
-```
-
-
-
 序列化
 
 ```
