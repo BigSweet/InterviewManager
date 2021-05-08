@@ -28,7 +28,7 @@ startactivity方法，在stack栈中调用resumetopactivity，会先暂停上一
 
 Activity-30启动流程
 
-![android30activity](/Users/yanzhe/Desktop/android30activity.png)
+![android30activity](/Users/yanzhe/android/知识整理/image/20201025235505633.png)
 
 activity启动模式
 从A启动Bactivity的生命周期是
