@@ -159,3 +159,7 @@ jodatime时间库
 lambda对对象的字段和静态变量都可以读写
 lambda可以访问局部变量
 使用::关键字来传递方法或者构造函数引用
+
+##nestscrollview和recyclerview嵌套引起的缓存问题
+监听globallistener，获取scrollview的高度给recyclerview
+nestscrollview的测量模式是UNSPECIFIED,recyclerview在onmeasure的时候，如果是UNSPECIFIED会实例化所有的child

@@ -1,16 +1,149 @@
 rxjava原理解析
-##rxjava原理解析
+
+## rxjava原理解析
+
 基于观察者模式的一个异步操作库，
 观察者向被观察者注册，当被观察者有变化的时候，触发观察者去notify，这些具体的实现，由他们对应的子类去实现
 3个重要的东西，观察者，被观察者，事件，订阅。线程切换。操作符。
 首先创建一个被观察者，一个观察者，被观察者订阅观察者，发动一个事件。可以通过操作符对这个事件进行转换，最后在通过线程切换在不同的线程去做一些事情。
+
 map操作符，针对事件的变换的操作符，比如讲map转换为bitmap
 flatmap操作符，是针对被观察者变换的操作符，比如讲string的被观察者变成bitmap类型的被观察者
-subscribeon 创建了一个新的subscribe，传入了source。在通过传入的scheduler去creatework
-一般是scheduler.io对应IoScheduler创建了一个newthreadwork通过线程池去执行。
-因为subscribeon 每次创建新的类传入的source都是我们创建的single，最终在subscribeActual里面触发的都是
 
-source.subscribe发送到下游
+```
+Observable.just()
+                .map(new Function<String, String>() {
+                    @Override
+                    public String apply(String s) throws Exception {
+
+                })
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<String>() {
+                    @Override
+                    public void accept(String path) throws Exception {
+
+                    }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable) throws Exception {
+                       
+                    }
+                });
+
+```
+
+Observable.just返回的是ObservableJust 
+
+.map返回的是ObservableMap
+
+```
+public static <T> Observable<T> just(T item) {
+        ObjectHelper.requireNonNull(item, "item is null");
+        return RxJavaPlugins.onAssembly(new ObservableJust<T>(item));
+    }
+    
+    public final <R> Observable<R> map(Function<? super T, ? extends R> mapper) {
+        ObjectHelper.requireNonNull(mapper, "mapper is null");
+        return RxJavaPlugins.onAssembly(new ObservableMap<T, R>(this, mapper));
+    }
+```
+
+看下最后的subscribe
+
+```
+public final Disposable subscribe(Consumer<? super T> onNext, Consumer<? super Throwable> onError,
+            Action onComplete, Consumer<? super Disposable> onSubscribe) {
+        LambdaObserver<T> ls = new LambdaObserver<T>(onNext, onError, onComplete, onSubscribe);
+        subscribe(ls);
+        return ls;
+    }
+    
+    public final void subscribe(Observer<? super T> observer) {
+            subscribeActual(observer);
+    }
+```
+
+记住最后一个Observer是LambdaObserver
+
+触发的是ObservableMap的subscribeActual
+
+首先看下ObservableMap的构造方法
+
+source 是在ObservableMap创建的时候传入的this,而this就是上一个Observable也就是ObservableJust
+
+```
+public ObservableMap(ObservableSource<T> source, Function<? super T, ? extends U> function) {
+    super(source);
+    this.function = function;
+}
+
+@Override
+    public void subscribeActual(Observer<? super U> t) {
+        source.subscribe(new MapObserver<T, U>(t, function));
+    }
+```
+
+source是ObservableJust也就是上一级Observable的subscribe
+
+看下ObservableJust的subscribeActual
+
+```
+ @Override
+    protected void subscribeActual(Observer<? super T> observer) {
+        ScalarDisposable<T> sd = new ScalarDisposable<T>(observer, value);
+        observer.onSubscribe(sd);
+        sd.run();
+    }
+```
+
+触发了observer的onSubscribe方法，observer是构造方法中传进来的，subscribeActual是source.subscribe触发的，所以这里的observer就是MapObserver
+
+在mapObserver的onnext方法中
+
+```
+ public void onNext(T t) {
+         
+            try {
+                v = ObjectHelper.requireNonNull(mapper.apply(t), "The mapper function returned a null value.");
+            } catch (Throwable ex) {
+                fail(ex);
+                return;
+            }
+            downstream.onNext(v);
+        }
+```
+
+除了出发mapper.apply(t)之外，还调用了downstream.onNext(v);
+
+downstream是在构造方法传进来的
+
+```
+ MapObserver(Observer<? super U> actual, Function<? super T, ? extends U> mapper) {
+            super(actual);//在这里
+            this.mapper = mapper;
+        }
+  public BasicFuseableObserver(Observer<? super R> downstream) {
+        this.downstream = downstream;
+    }
+```
+
+也就是source.subscribe(new MapObserver<T, U>(t, function));这个t
+
+这个t是subscribeActual的参数
+
+```
+@Override
+    public void subscribeActual(Observer<? super U> t) {
+        source.subscribe(new MapObserver<T, U>(t, function));
+    }
+```
+
+所以这个subscribeActual里面的Observer是最后的LambdaObserver
+
+整个流程结束
+
+
 
 SubscribeOn只生效第一次，影响的是上游
 
