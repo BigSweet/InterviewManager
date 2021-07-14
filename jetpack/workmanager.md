@@ -364,4 +364,46 @@ WorkManager 提供两种不同类型的 `InputMerger`：
 
 by the last最后说一下
 
-请注意，[`Worker.doWork()`](https://developer.android.google.cn/reference/androidx/work/Worker#doWork()) 是同步调用 - 您将会以阻塞方式完成整个后台工作，并在方法退出时完成工作。如果您在 `doWork()` 中调用异步 API 并返回 [`Result`](https://developer.android.google.cn/reference/androidx/work/ListenableWorker.Result)，则回调可能无法正常运行。如果您遇到这种情况，请考虑使用 [`ListenableWorker`](https://developer.android.google.cn/reference/androidx/work/ListenableWorker)（请参阅[在 ListenableWorker 中进行线程处理](https://developer.android.google.cn/topic/libraries/architecture/workmanager/advanced/listenableworker)）。
+请注意，[`Worker.doWork()`](https://developer.android.google.cn/reference/androidx/work/Worker#doWork()) 是同步调用 - 您将会以阻塞方式完成整个后台工作，并在方法退出时完成工作。如果您在 `doWork()` 中调用异步 API 并返回 [`Result`](https://developer.android.google.cn/reference/androidx/work/ListenableWorker.Result)，则回调可能无法正常运行。如果您遇到这种情况，请考虑使用 [`ListenableWorker`](https://developer.android.google.cn/reference/androidx/work/ListenableWorker)（请参阅[在 ListenableWorker 中进行线程处理](https://developer.android.google.cn/topic/libraries/architecture/workmanager/advanced/listenableworker)）。workmanager
+
+[WorkManager](https://developer.android.google.cn/reference/androidx/work/WorkManager) 是一个 API，使您可以轻松调度那些即使在退出应用或重启设备时仍应运行的
+
+功能:
+
+**添加工作约束**
+
+**强大的调度**
+
+**灵活的重试政策**
+
+**链接多个任务**
+
+**无缝集成RxJava和协程**
+
+实例代码
+
+```
+var continuation = workManager
+                .beginUniqueWork(
+                        IMAGE_MANIPULATION_WORK_NAME,
+                        ExistingWorkPolicy.REPLACE,
+                        OneTimeWorkRequest.from(CleanupWorker::class.java)
+                )
+               
+val blurBuilder = OneTimeWorkRequestBuilder<BlurWorker>()
+ //worker之间传递数据
+blurBuilder.setInputData(createInputDataForUri())
+continuation = continuation.then(blurBuilder.build())
+  //添加约束
+val constraints = Constraints.Builder()
+                .setRequiresCharging(true)
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+val save = OneTimeWorkRequestBuilder<SaveImageToFileWorker>()
+                .setConstraints(constraints)
+                .addTag(TAG_OUTPUT)
+                .build()
+continuation = continuation.then(save)
+continuation.enqueue()
+```
+
