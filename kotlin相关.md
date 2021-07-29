@@ -24,7 +24,65 @@ with操作符 定义一个域，这个域中直接就是自己本身，可以访
 run操作符 let和with的结合体，可以操作符前面判空。作用域中表示自己本身。访问自身的方法和属性，返回值为最后一行代码
 apply 和run操作符类似，返回值不同，返回的是自己本身
 
+## kotlin内联函数
 
-##kotlin内联函数
+### inline
+
 调用一个方法是一个压栈和出栈的过程,这个过程是会消耗资源的。获取传递高阶函数作为参数的时候也可以使用内联函数
 标记为内联函数就会在编译期间直接执行方法体，不需要压栈和出栈，节省资源，
+
+在高阶函数作为参数传递的时候，在执行的时候，高阶函数会被创建成一个对象，如果放在循环体中，会创建多个对象
+
+比如
+
+```
+fun hello(action:()->Unit){
+ print("hello!")
+ action
+}
+fun main(){  
+	hello{
+		print("bye!")
+	}
+}
+===========
+fun main(){
+val post = object :Function0<Unit>{
+		override fun invoke(){
+				return print("hello!")
+		}
+	}
+}
+hello(post)
+```
+
+如果我们标记了hello为内涵函数
+
+那么main方法为
+
+```
+fun main(){  
+ print("hello!")
+ print("bye!")
+}
+```
+
+### noinline用法
+
+noinline用来局部的，指向性地关闭函数的内联优化，效果如下
+
+![image-20210721102106704](/Users/yanzhe/android/知识整理/kotlinimage/image-20210721102106704.png)
+
+### crossinline
+
+如果我们在main中写了一个return
+
+让内联函数里面的函数类型参数可以被间接的调用，但是标记了crossinline之后，在lambda表达式里面就不能使用return
+
+其实return的是main方法
+
+![image-20210721102538590](/Users/yanzhe/android/知识整理/kotlinimage/image-20210721102538590.png)
+
+
+
+![image-20210721103023695](/Users/yanzhe/android/知识整理/kotlinimage/image-20210721103023695.png)
