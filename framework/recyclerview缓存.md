@@ -1,4 +1,4 @@
-recyclerview缓存，glide缓存
+recyclerview缓存
 
 ## recylerview的缓存
 四级缓存主要是通过Recycler这个类
@@ -31,5 +31,4 @@ recyclerviewpool (最大缓存5个)
 缓存一般都是先通过position来拿在通过id来拿，最后如果没有缓存的话就创建新的viewholder
 
 当界面最开始出现的时候，没有任何缓存，生成新的holder，并且存入mAttachedScrap，如果屏幕中的holder有数据改变，就会存入mChangedScrap，这个时候界面上滑的话，新进入的holder，根据position和id都没有缓存，会存入mAttachedScrap，滑出去的holder会存入mCachedViews，当滑出去的holder数量大于2的时候，就会存入recyclerviewpool中最多五个，当继续来了新的holder的时候，就会把旧的缓存中的holder移出去
-
 

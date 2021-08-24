@@ -81,3 +81,87 @@ linkhashmap的newnode方法为
 
 调用entry的addBefore方法，把新插入的节点的头指向上一个节点，尾指向head节点
 直接遍历双向链表,通过节点next双向链表，一直找到尾节点，after是空head节点这个时候就代表找完了
+
+
+
+glide原理解析csdn链接：https://blog.csdn.net/qq_15527709/article/details/114528807?spm=1001.2014.3001.5501
+
+
+
+glide添加进度监听流程
+
+1，注册一个appglidemoudle，将okhttp的loader添加进去，同时给okhttp添加一个拦截器
+
+```
+@GlideModule
+public class OkHttpLibraryGlideModule extends AppGlideModule {
+    @Override
+    public void registerComponents(Context context, Glide glide, Registry registry) {
+        //添加拦截器到Glide
+        OkHttpClient.Builder builder = new OkHttpClient.Builder();
+        builder.addInterceptor(new ProgressInterceptor());
+        OkHttpClient okHttpClient = builder.build();
+
+        //原来的是  new OkHttpUrlLoader.Factory()；
+        registry.replace(GlideUrl.class, InputStream.class, new OkHttpUrlLoader.Factory(okHttpClient));
+    }
+
+    //完全禁用清单解析
+    @Override
+    public boolean isManifestParsingEnabled() {
+        return false;
+    }
+}
+```
+
+2,拦截器拦截response
+
+```
+ @Override
+    public Response intercept(Chain chain) throws IOException {
+        Request request = chain.request();
+        Response response = chain.proceed(request);
+        String url = request.url().toString();
+        ResponseBody body = response.body();
+        Response newResponse = response.newBuilder().body(new ProgressResponseBody(url, body)).build();
+        return newResponse;
+    }
+```
+
+3,在source里面读取进度，并且回调出去
+
+```
+private class ProgressSource extends ForwardingSource {
+
+        long totalBytesRead = 0;
+
+        int currentProgress;
+
+        ProgressSource(Source source) {
+            super(source);
+        }
+
+        @Override
+        public long read(Buffer sink, long byteCount) throws IOException {
+            long bytesRead = super.read(sink, byteCount);
+            long fullLength = responseBody.contentLength();
+            if (bytesRead == -1) {
+                totalBytesRead = fullLength;
+            } else {
+                totalBytesRead += bytesRead;
+            }
+            int progress = (int) (100f * totalBytesRead / fullLength);
+            Log.d(TAG, "download progress is " + progress);
+            if (listener != null && progress != currentProgress) {
+                listener.onProgress(progress);
+            }
+            if (listener != null && totalBytesRead == fullLength) {
+                listener = null;
+            }
+
+            currentProgress = progress;
+            return bytesRead;
+        }
+    }
+```
+

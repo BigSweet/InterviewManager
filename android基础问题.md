@@ -4,6 +4,40 @@ android基础问题
 startService -> oncreate->onstartcommand->ondestory
 bindservice->oncreate->onbind->onunbind->ondestory
 
+### 四种启动模式
+
+Standard 标准模式
+
+```
+Android创建Activity时的默认模式，假设没有为Activity设置启动模式的话，默觉得标准模式。每次启动一个Activity都会又一次创建一个新的实例入栈，无论这个实例是否存在。
+```
+
+ SingleTask 栈内复用模式
+
+```
+若须要创建的Activity已经处于栈中时，此时不会创建新的Activity，而是将存在栈中的Activity上面的其他Activity所有销毁，使它成为栈顶。
+```
+
+ SingleTop 栈顶复用模式
+
+```
+分两种处理情况：须要创建的Activity已经处于栈顶时，此时会直接复用栈顶的Activity。不会再创建新的Activity；若须要创建的Activity不处于栈顶，此时会又一次创建一个新的Activity入栈，同Standard模式一样。
+```
+
+SingleInstance 单实例模式
+
+```
+具有此模式的Activity仅仅能单独位于一个任务栈中
+```
+
+
+
+### A页面跳转到B页面
+
+当A跳转到B的时候，A先执行onPause，然后居然是B再执行onCreate -> onStart -> onResume，最后才执行A的onStop
+
+当B按下返回键，B先执行onPause，然后居然是A再执行onRestart -> onStart -> onResume，最后才是B执行onStop  -> onDestroy
+
 ## fragment之间传递数据
 eventbus
 通过父activity传递数据
@@ -29,10 +63,29 @@ js文件放在本地实现优化
 一种是今日头条的适配方案，通过修改系统的dpi值达到适配，也是获取当前设备的宽度和高度来和设计稿做一个对比
 
 ## android各版本兼容
-6.0 权限适配
+6.0 权限适配,移除支持http,低电耗模式
+
+
+
 7.0 应用之间共享文件，私有目录将被限制访问 不能通过file:// URI的形式 使用fileprovider要用content:// URI
+
+多窗口支持,画中画，APK signature scheme v2
+
+
+
 8.0 通知变化了很多 要加channelid groupid等给通知进行分类 透明的activity不允许设置方向  安装APK，不允许安装来源不明的应用，需要授权，悬浮窗权限的变更
-9.0 不支持http 移除了apachehttp的包 需要自己引用library 权限的变更比如电话号码，通话记录
+
+
+
+9.0 多摄像头支持，Android 9 引入了 [`AnimatedImageDrawable`](https://developer.android.com/reference/android/graphics/drawable/AnimatedImageDrawable) 类，用于绘制和显示 GIF 和 WebP 动画图像
+
+
+
+10.0可折叠设备,5G 网络,深色主题
+
+
+
+11.0 Android 11 提供了一些 API 以支持瀑布屏，无线调试，ADB 增量 APK 安装
 
 ## 自定义view的俩种方式
 一种是自定义viewgroup，只需要重写，onmeasure，和onlayou。子view可以是自定义的view也可以是实例化一个布局
