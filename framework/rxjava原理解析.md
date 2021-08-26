@@ -281,25 +281,68 @@ subscribeOn(AndroidSchedulers.mainThread())
 .subscribeOn(Schedulers.io())
 
 subscribe触发之后，会从下往上调用上一个SubscribeOn的subscribeActual方法，所以最终触发的是第一个SubscribeOn
-
-
-    observeOn 可以调用多次 最后一次生效
-    
-     Worker worker = scheduler.createWorker();
-
-        if (s instanceof ConditionalSubscriber) {
-            source.subscribe(new ObserveOnConditionalSubscriber<T>(
-                    (ConditionalSubscriber<? super T>) s, worker, delayError, prefetch));
-        } else {
-            source.subscribe(new ObserveOnSubscriber<T>(s, worker, delayError, prefetch));
-        }
-        
-        每次都是创建一个新的work，创建一个新的task去执行
+observeOn 可以调用多次 最后一次生效
 ```
 
+在observeon中的subscribeActual中用一个ObserveOnObserver又包装了一层
 
+```
+   @Override
+    protected void subscribeActual(Observer<? super T> observer) {
+        if (scheduler instanceof TrampolineScheduler) {
+            source.subscribe(observer);
+        } else {
+            Scheduler.Worker w = scheduler.createWorker();
+
+            source.subscribe(new ObserveOnObserver<T>(observer, w, delayError, bufferSize));
+        }
+    }
+```
+
+ObserveOnObserver的next方法中开启切换，
+
+在schedule的run方法中继续触发onnext下一层，所以他影响的是下一层
+
+```
+@Override
+public void onNext(T t) {
+    if (done) {
+        return;
+    }
+
+    if (sourceMode != QueueDisposable.ASYNC) {
+        queue.offer(t);
+    }
+    schedule();
+}
+```
+
+在subscribeOn的subscribeActual方法中
+
+```
+@Override
+public void subscribeActual(final Observer<? super T> observer) {
+    final SubscribeOnObserver<T> parent = new SubscribeOnObserver<T>(observer);
+
+    observer.onSubscribe(parent);
+
+    parent.setDisposable(scheduler.scheduleDirect(new SubscribeTask(parent)));
+}
+```
+
+看下SubscribeTask的run方法
+
+```
+@Override
+public void run() {
+    source.subscribe(parent);
+}
+```
+
+触发的是source的subscribe也就是上一层，所以subscribeOn影响的是上一层
 
 ## rxjava背压
+
 在异步订阅中，由于被观察者发送数据和观察者接收数据的速度不匹配，导致无法及时响应，内存溢出。就引入了背压这个概念
 使用flowable观察者模型，发送的事件会进入一个缓存区，根据观察者的需求，响应式的拿取数据
 flowable会手动控制观察者和被观察者的速度 通过一个request方法取数据，被观察者也可以通过emiter.request来获取观察者需要的数据数量（只能在同步订阅中使用）
@@ -328,29 +371,16 @@ Observable.create(ObservableOnSubscribe<String> {
 
 ```
 public enum BackpressureStrategy {
-    /**
-     * OnNext events are written without any buffering or dropping.
-     * Downstream has to deal with any overflow.
-     * <p>Useful when one applies one of the custom-parameter onBackpressureXXX operators.
-     */
-    MISSING,
-    /**
-     * Signals a MissingBackpressureException in case the downstream can't keep up.
-     */
-    ERROR,
-    /**
-     * Buffers <em>all</em> onNext values until the downstream consumes it.
-     */
-    BUFFER,
-    /**
-     * Drops the most recent onNext value if the downstream can't keep up.
-     */
-    DROP,
-    /**
-     * Keeps only the latest onNext value, overwriting any previous value if the
-     * downstream can't keep up.
-     */
-    LATEST
+
+    MISSING, //自己处理异常
+  
+    ERROR, //报错exception
+  
+    BUFFER, //缓存区所有的，知道下游处理
+   
+    DROP,//丢弃最新的onnext
+  
+    LATEST//只取最新的onnext值
 }
 ```
 
