@@ -2,6 +2,8 @@ room数据库使用
 
 ## roombase
 
+建库@database 继承room的database
+
 ```
 @Database(
     entities = [Repo::class, RemoteKeys::class],
@@ -157,4 +159,14 @@ viewModelScope.launch(Dispatchers.Main) {
 ```
 
 
+
+多张表查询通过主表的主键和外表的外键相关联
+
+数据库升级需要addMigrations
+
+```
+val dao = Room.databaseBuilder(applicationContext, StudentDataBase::class.java, "test")
+                .addMigrations()
+                .build()
+```
 

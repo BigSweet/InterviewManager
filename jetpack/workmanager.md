@@ -100,7 +100,7 @@ val myWorkRequest: WorkRequest =
 //可以添加的约束类型如下
 ```
 
-![image-20201010102129167](/Users/yanzhe/android/知识整理/jetpack/图片/image-20201010102129167.png)
+![image-20201010102129167](/图片/image-20201010102129167.png)
 
 
 
@@ -191,7 +191,7 @@ val myUploadWork = OneTimeWorkRequestBuilder<UploadWork>()
 
 在 `ENQUEUED` 状态下，您的工作会在满足其 [`Constraints`](https://developer.android.google.cn/reference/androidx/work/Constraints) 和初始延迟计时要求后立即运行。接下来，该工作会转为 [`RUNNING`](https://developer.android.google.cn/reference/androidx/work/WorkInfo.State#RUNNING) 状态，然后可能会根据工作的结果转为 [`SUCCEEDED`](https://developer.android.google.cn/reference/androidx/work/WorkInfo.State#SUCCEEDED)、[`FAILED`](https://developer.android.google.cn/reference/androidx/work/WorkInfo.State#FAILED) 状态；或者，如果结果是 [`retry`](https://developer.android.google.cn/topic/libraries/architecture/workmanager/how-to/reference/androidx/work/ListenableWorker.Result#retry())，它可能会回到 `ENQUEUED` 状态。在此过程中，随时都可以取消工作，取消后工作将进入 [`CANCELLED`](https://developer.android.google.cn/reference/androidx/work/WorkInfo.State#CANCELLED) 状态。
 
-![image-20201010141544051](/Users/yanzhe/android/知识整理/jetpack/图片/image-20201010141544051.png)
+![image-20201010141544051](图片/image-20201010141544051.png)
 
 `SUCCEEDED`、`FAILED` 和 `CANCELLED` 均表示此工作的终止状态。如果您的工作处于上述任何状态，[`WorkInfo.State.isFinished()`](https://developer.android.google.cn/reference/androidx/work/WorkInfo.State#isFinished()) 都将返回 true。
 
@@ -199,7 +199,7 @@ val myUploadWork = OneTimeWorkRequestBuilder<UploadWork>()
 
 成功和失败状态仅适用于一次性工作和[链式工作](https://developer.android.google.cn/topic/libraries/architecture/workmanager/how-to/chain-work)。[定期工作](https://developer.android.google.cn/topic/libraries/architecture/workmanager/how-to/define-work#schedule_periodic_work)只有一个终止状态 `CANCELLED`。这是因为定期工作永远不会结束。每次运行后，无论结果如何，系统都会重新对其进行调度。图 2 描述了定期工作的精简状态图。
 
-![image-20201010141711434](/Users/yanzhe/android/知识整理/jetpack/图片/image-20201010141711434.png)
+![image-20201010141711434](/图片/image-20201010141711434.png)
 
 
 
