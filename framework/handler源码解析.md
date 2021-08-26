@@ -1,5 +1,5 @@
 # handler源码解析
-handler主要涉及到message，messagequene，loop，
+handler主要涉及到message，messagequene，loop，threadlocal
 发送一条message会进入messagequene中，然后通过loop循环取出这个message，然后回调handlermessage，如果handler是在主线程调用的话就会回调到主线程
 
 ## handler线程切换是怎么实现的
@@ -43,8 +43,6 @@ looper中的mainlooper是静态的，所有的looper公用
 ```
 
 
-
-线程之间通信的本质就是内存共享
 handler.send  messagequene.enquenemessage 将消息放入队列中
 loop.loop会触发messagequene.next  将消息从队列中取出
 loop.prepare之后线程自己在调用loop.loop开启循环

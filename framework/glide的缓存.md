@@ -18,7 +18,19 @@
 
 通过变量acquired大于0来表示正在使用的图片
 
-磁盘缓存
+
+
+### 示例
+
+如果从内存中拿到了缓存，会将这个缓存从内存中移除，放在弱引用中，同时acquired计数器加1，代表这个图片正在被使用
+
+当图片被释放了之后
+
+这里首先会将缓存图片从activeResources中移除，然后再将它put到LruResourceCache当中。这样也就实现了正在使用中的图片使用弱引用来进行缓存，不在使用中的图片使用LruCache来进行缓存的功能。
+
+
+
+## 磁盘缓存
 
 decodejob在run的时候在DataCacheGenerator的startNext方法中获取磁盘缓存的文件
 

@@ -47,7 +47,13 @@ public static <T> Observable<T> just(T item) {
     }
 ```
 
-看下最后的subscribe
+现在出现了俩个上游记录一下
+
+第一个上游是ObservableJust
+
+第二个上游是ObservableMap
+
+接下来看下最后的subscribe触发整个流程
 
 ```
 public final Disposable subscribe(Consumer<? super T> onNext, Consumer<? super Throwable> onError,
@@ -62,13 +68,13 @@ public final Disposable subscribe(Consumer<? super T> onNext, Consumer<? super T
     }
 ```
 
-记住最后一个Observer是LambdaObserver
+如果最后subscribe转入的不是observer，那么就会在里面包一个LambdaObserver
+
+接下来subscribeActual是一个空方法，由上一个observable触发，
+
+上一个是observable是ObservableMap
 
 触发的是ObservableMap的subscribeActual
-
-首先看下ObservableMap的构造方法
-
-source 是在ObservableMap创建的时候传入的this,而this就是上一个Observable也就是ObservableJust
 
 ```
 public ObservableMap(ObservableSource<T> source, Function<? super T, ? extends U> function) {
@@ -82,7 +88,9 @@ public ObservableMap(ObservableSource<T> source, Function<? super T, ? extends U
     }
 ```
 
-source是ObservableJust也就是上一级Observable的subscribe
+source 是在ObservableMap创建的时候传入的this,而this就是上一个Observable也就是ObservableJust
+
+所以这里触发的是ObservableJust的subscribeActual
 
 看下ObservableJust的subscribeActual
 
@@ -95,9 +103,83 @@ source是ObservableJust也就是上一级Observable的subscribe
     }
 ```
 
-触发了observer的onSubscribe方法，observer是构造方法中传进来的，subscribeActual是source.subscribe触发的，所以这里的observer就是MapObserver
+触发了observer的onSubscribe方法，observer是subscribeActual构造方法中传进来的
 
-在mapObserver的onnext方法中
+所以这里的Observer就是MapObserver
+
+看下MapObserver的onSubscribe方法在父类BasicFuseableObserver中
+
+```
+  @Override
+    public final void onSubscribe(Disposable d) {
+        if (DisposableHelper.validate(this.upstream, d)) {
+
+            this.upstream = d;
+            if (d instanceof QueueDisposable) {
+                this.qd = (QueueDisposable<T>)d;
+            }
+
+            if (beforeDownstream()) {
+
+                downstream.onSubscribe(this);
+
+                afterDownstream();
+            }
+
+        }
+    }
+```
+
+这里又触发了downstream的onSubscribe
+
+downstream是由构造方法传进来的，
+
+```
+ MapObserver(Observer<? super U> actual, Function<? super T, ? extends U> mapper) {
+            super(actual);
+            this.mapper = mapper;
+        }
+```
+
+所以MapObserver的第一个参数就是downstream
+
+```
+ @Override
+    public void subscribeActual(Observer<? super U> t) {
+        source.subscribe(new MapObserver<T, U>(t, function));
+    }
+
+```
+
+这个t就是downstream，t是subscribeActual的构造方法传进来的，所以这个downstream就是LambdaObserver一层一层往下
+
+分析完了onSubscribe在看sd.run();
+
+```
+ @Override
+    protected void subscribeActual(Observer<? super T> observer) {
+        ScalarDisposable<T> sd = new ScalarDisposable<T>(observer, value);
+        observer.onSubscribe(sd);
+        sd.run();
+    }
+    
+      @Override
+        public void run() {
+            if (get() == START && compareAndSet(START, ON_NEXT)) {
+                observer.onNext(value);
+                if (get() == ON_NEXT) {
+                    lazySet(ON_COMPLETE);
+                    observer.onComplete();
+                }
+            }
+        }
+```
+
+run方法里面触发了 observer.onNext(value);
+
+这个observer是subscribeActual传进来的也就是mapmapObserver
+
+继续看mapObserver的onnext方法中
 
 ```
  public void onNext(T t) {
@@ -112,13 +194,17 @@ source是ObservableJust也就是上一级Observable的subscribe
         }
 ```
 
-除了出发mapper.apply(t)之外，还调用了downstream.onNext(v);
+除了触发mapper.apply(t)之外，还调用了downstream.onNext(v);
 
 downstream是在构造方法传进来的
 
 ```
+   public BasicFuseableObserver(Observer<? super R> downstream) {
+        this.downstream = downstream;
+    }
+    
  MapObserver(Observer<? super U> actual, Function<? super T, ? extends U> mapper) {
-            super(actual);//在这里
+            super(actual);//在这里这个就是downstream
             this.mapper = mapper;
         }
   public BasicFuseableObserver(Observer<? super R> downstream) {
@@ -126,7 +212,14 @@ downstream是在构造方法传进来的
     }
 ```
 
-也就是source.subscribe(new MapObserver<T, U>(t, function));这个t
+而mapobserver是在subscribe创建的
+
+```
+@Override
+    public void subscribeActual(Observer<? super U> t) {
+        source.subscribe(new MapObserver<T, U>(t, function));
+    }
+```
 
 这个t是subscribeActual的参数
 
@@ -137,7 +230,42 @@ downstream是在构造方法传进来的
     }
 ```
 
-所以这个subscribeActual里面的Observer是最后的LambdaObserver
+所以这个subscribeActual里面的t是LambdaObserver
+
+onnext方法如下
+
+```
+@Override
+    public void onNext(T t) {
+        if (!isDisposed()) {
+            try {
+                onNext.accept(t);
+            } catch (Throwable e) {
+                Exceptions.throwIfFatal(e);
+                get().dispose();
+                onError(e);
+            }
+        }
+    }
+```
+
+最后触发了 onNext.accept(t);
+
+```
+ .subscribe(new Consumer<String>() {
+                    @Override
+                    public void accept(String path) throws Exception {
+
+                    }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable) throws Exception {
+                       
+                    }
+                });
+```
+
+也就是subscribe（）括号里面的方法
 
 整个流程结束
 
@@ -171,7 +299,7 @@ subscribe触发之后，会从下往上调用上一个SubscribeOn的subscribeAct
 
 
 
-##rxjava背压
+## rxjava背压
 在异步订阅中，由于被观察者发送数据和观察者接收数据的速度不匹配，导致无法及时响应，内存溢出。就引入了背压这个概念
 使用flowable观察者模型，发送的事件会进入一个缓存区，根据观察者的需求，响应式的拿取数据
 flowable会手动控制观察者和被观察者的速度 通过一个request方法取数据，被观察者也可以通过emiter.request来获取观察者需要的数据数量（只能在同步订阅中使用）

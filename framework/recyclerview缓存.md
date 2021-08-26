@@ -1,5 +1,3 @@
-recyclerview缓存
-
 ## recylerview的缓存
 四级缓存主要是通过Recycler这个类
 
