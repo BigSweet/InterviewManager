@@ -1,4 +1,4 @@
-![image-20200716144226821](/Users/yanzhe/android/知识整理/image/image-20200716144226821.png)
+![image-20200716144226821](../image/image-20200716144226821.png)
 
 
 

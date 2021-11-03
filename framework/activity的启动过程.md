@@ -22,13 +22,13 @@ startactivity方法，在stack栈中调用resumetopactivity，会先暂停上一
 
 再次到栈中调用resumetopactivity，走到realstartactivitylocked，在走到applicaitonthread发送launch_activity时间，触发perfromlauchchactivity，mInstrumentation.callActivityOnCreate,通过mInstrumentation在触发activity的oncreate
 
-![image-20210419140404511](/Users/yanzhe/android/知识整理/image/20160822162305109.png)
+![image-20210419140404511](../image/20160822162305109.png)
 
 
 
 Activity-30启动流程
 
-![android30activity](/Users/yanzhe/android/知识整理/image/20201025235505633.png)
+![android30activity](../image/20201025235505633.png)
 
 activity启动模式
 从A启动Bactivity的生命周期是

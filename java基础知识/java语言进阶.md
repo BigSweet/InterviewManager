@@ -12,7 +12,7 @@
 
 方法区：线程共享，它用于存储已被虚拟机加载的类信息、常量、静态变量、即时编译器编译后的代码等
 
-![image-20201026173135257](/Users/yanzhe/android/知识整理/image/image-20201026173135257.png)
+![image-20201026173135257](image/image-20201026173135257.png)
 
 
 
@@ -134,16 +134,6 @@ public class WildChar{
 
 在invoke中调用 method.invoke 触发方法本来的操作，通过可以在前后加入想加入的功能代码
 
-
-
-
-
-饿汉式  直接new出来
-
-懒汉式 锁住之后，在new出来
-
-
-
 序列化
 
 ```
@@ -185,17 +175,11 @@ inputStream作为基类
 
 与上面的一一对应
 
-
-
 io字符流 字符有行的概念
 
 BufferedWriter 对字符的操作
 
 OutputStreamWriter 建立字节和字符联系的类
-
-
-
-
 
 
 
@@ -205,20 +189,6 @@ RandomAccessFile
 seek(long pos) 定位到文件的某一个点
 setLength(long newLength) 设置一个指定大小的空文件
 ```
-
-
-
-
-
-打包流程
-
-aapt生成R文件
-
-java文件生成class文件
-
-class文件转换为dex文件
-
-资源文件和dex文件打包成apk
 
 
 

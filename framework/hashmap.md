@@ -40,3 +40,51 @@ hashmap 1.8 当链表的长度>8且数组长度大于64node就会被转换为树
 
 hashmap使用红黑树的意义是为了树不退化成链表（通过右旋来平衡）
 
+
+
+## councurrenthashmap
+
+1.7和1.8的区别
+
+### 数据结构方面
+
+1.7:
+
+数组（Segment） + 数组（HashEntry） + 链表（HashEntry节点）
+
+1.8:
+
+数组+链表+红黑树
+
+
+
+### 线程安全方面
+
+1.7
+
+ReentrantLock+Segment+HashEntry
+
+分段锁 对整个桶数组进行了分割分段(Segment)，每一把锁只锁容器其中一部分数据，多线程访问容器里不同数据段的数据，就不会存在锁竞争，提高并发访问率。
+
+1.8
+
+synchronized+CAS+HashEntry+红黑树
+
+使用的是优化的synchronized 关键字同步代码块 和 cas操作了维护并发
+
+
+
+### put方面
+
+1.7
+
+Segment的继承体系可以看出，Segment实现了ReentrantLock,也就带有锁的功能，当执行put操作时，会进行第一次key的hash来定位Segment的位置，如果该Segment还没有初始化，即通过CAS操作进行赋值，然后进行第二次hash操作，找到相应的HashEntry的位置，这里会利用继承过来的锁的特性，在将数据插入指定的HashEntry位置时（链表的尾端），会通过继承ReentrantLock的tryLock（）方法尝试去获取锁，如果获取成功就直接插入相应的位置，如果已经有线程获取该Segment的锁，那当前线程会以自旋的方式去继续的调用tryLock（）方法去获取锁，超过指定次数就挂起，等待唤醒
+
+1.8
+
+如果没有初始化就先调用initTable（）方法来进行初始化过程
+如果没有hash冲突就直接CAS插入
+如果还在进行扩容操作就先进行扩容
+如果存在hash冲突，就加锁来保证线程安全，这里有两种情况，一种是链表形式就直接遍历到尾端插入，一种是红黑树就按照红黑树结构插入，
+最后一个如果Hash冲突时会形成Node链表，在链表长度超过8，Node数组超过64时会将链表结构转换为红黑树的结构，break再一次进入循环
+如果添加成功就调用addCount（）方法统计size，并且检查是否需要扩容
