@@ -143,9 +143,9 @@ downstream是在构造方法传进来的
 
 
 
-SubscribeOn只生效第一次，影响的是上游
+SubscribeOn只生效第一次，影响的是上游,发送是从下往上传递，一级一级调用（发送是由subscribe触发）
 
-observeon 可以调用多次  ，影响的是下游，最后一次生效
+observeon 可以调用多次  ，影响的是下游，最后一次生效，接收是从上往下传递
 
 ```
 SubscribeOn只生效第一次
@@ -171,7 +171,7 @@ subscribe触发之后，会从下往上调用上一个SubscribeOn的subscribeAct
 
 
 
-##rxjava背压
+## rxjava背压
 在异步订阅中，由于被观察者发送数据和观察者接收数据的速度不匹配，导致无法及时响应，内存溢出。就引入了背压这个概念
 使用flowable观察者模型，发送的事件会进入一个缓存区，根据观察者的需求，响应式的拿取数据
 flowable会手动控制观察者和被观察者的速度 通过一个request方法取数据，被观察者也可以通过emiter.request来获取观察者需要的数据数量（只能在同步订阅中使用）
@@ -225,4 +225,140 @@ public enum BackpressureStrategy {
     LATEST
 }
 ```
+
+## 线程切换
+
+### io线程
+
+通过线程池来切换
+
+```
+ @NonNull
+    public static Scheduler io() {
+        return RxJavaPlugins.onIoScheduler(IO);
+    }
+```
+
+```
+ IO = RxJavaPlugins.initIoScheduler(new IOTask());
+```
+
+```
+ static final class IOTask implements Callable<Scheduler> {
+        @Override
+        public Scheduler call() throws Exception {
+            return IoHolder.DEFAULT;
+        }
+    }
+```
+
+```
+static final class IoHolder {
+        static final Scheduler DEFAULT = new IoScheduler();
+    }
+```
+
+```
+  public IoScheduler() {
+        this(WORKER_THREAD_FACTORY);
+    }
+```
+
+然后看这个类的creatework方法
+
+```
+@NonNull
+    @Override
+    public Worker createWorker() {
+        return new EventLoopWorker(pool.get());
+    }
+```
+
+继续看work的schedule方法
+
+```
+@NonNull
+@Override
+public Disposable schedule(@NonNull Runnable action, long delayTime, @NonNull TimeUnit unit) {
+    if (tasks.isDisposed()) {
+        // don't schedule, we are unsubscribed
+        return EmptyDisposable.INSTANCE;
+    }
+
+    return threadWorker.scheduleActual(action, delayTime, unit, tasks);
+}
+```
+
+```
+static final class ThreadWorker extends NewThreadWorker
+```
+
+在newthreadwork的构造方法中
+
+```
+public NewThreadWorker(ThreadFactory threadFactory) {
+        executor = SchedulerPoolFactory.create(threadFactory);
+    }
+```
+
+```
+ public static ScheduledExecutorService create(ThreadFactory factory) {
+        final ScheduledExecutorService exec = Executors.newScheduledThreadPool(1, factory);
+        tryPutIntoPool(PURGE_ENABLED, exec);
+        return exec;
+    }
+```
+
+到这里就能看到线程池的代码了，通过线程池来做线程的切换，
+
+### 主线程
+
+```
+public static Scheduler mainThread() {
+        return RxAndroidPlugins.onMainThreadScheduler(MAIN_THREAD);
+    }
+```
+
+```
+private static final Scheduler MAIN_THREAD = RxAndroidPlugins.initMainThreadScheduler(
+            new Callable<Scheduler>() {
+                @Override public Scheduler call() throws Exception {
+                    return MainHolder.DEFAULT;
+                }
+            });
+```
+
+```
+  private static final class MainHolder {
+        static final Scheduler DEFAULT
+            = new HandlerScheduler(new Handler(Looper.getMainLooper()), false);
+    }
+```
+
+```
+HandlerScheduler(Handler handler, boolean async) {
+        this.handler = handler;
+        this.async = async;
+    }
+
+    @Override
+    @SuppressLint("NewApi") // Async will only be true when the API is available to call.
+    public Disposable scheduleDirect(Runnable run, long delay, TimeUnit unit) {
+        if (run == null) throw new NullPointerException("run == null");
+        if (unit == null) throw new NullPointerException("unit == null");
+
+        run = RxJavaPlugins.onSchedule(run);
+        ScheduledRunnable scheduled = new ScheduledRunnable(handler, run);
+        Message message = Message.obtain(handler, scheduled);
+        if (async) {
+            message.setAsynchronous(true);
+        }
+        handler.sendMessageDelayed(message, unit.toMillis(delay));
+        return scheduled;
+    }
+```
+
+在HandlerScheduler可以看到切换主线程是通过handler发送message来进行切换
+
+handler的loop是MainLooper
 

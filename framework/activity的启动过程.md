@@ -1,6 +1,6 @@
 
 
-##startactivity的启动过程
+## startactivity的启动过程
 
 Launcher就是系统桌面就是一个activity
 launch进程（app的第一进程zygote进程fork）调用startactvity，当前activity在通过它的管家Instrumentation发起请求。告诉ams(activitymanagerserver)去启动这个activity

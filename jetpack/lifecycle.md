@@ -109,5 +109,3 @@ Lifecycling.lifecycleEventObserver(observer);
     
     
 ```
-
-## 

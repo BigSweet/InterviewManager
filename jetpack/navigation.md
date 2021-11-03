@@ -2,7 +2,7 @@
 
 基本用法如下
 
-定义基础跳转fragmentNavHostFragment
+定义基础跳转fragment.NavHostFragment
 
 在首页的layout中
 
